@@ -1,0 +1,125 @@
+{
+  "pageProps": {
+    "searchResults": {
+      "noOfResults": 749,
+      "results": [
+        {
+          "_type": "PRODUCT",
+          "id": 1113465,
+          "adId": null,
+          "adSource": null,
+          "featured": false,
+          "name": "Chocolate Easter Bunny",
+          "brand": "Cadbury",
+          "description": "CADBURY CHOCOLATE EASTER BUNNY 150G",
+          "internalDescription": "Only For Easter",
+          "size": "150g",
+          "availability": true,
+          "availabilityType": "InStoreAndOnline",
+          "imageUris": [
+            {
+              "altText": "",
+              "type": "default",
+              "uri": "/1/1113465.jpg"
+            }
+          ],
+          "locations": [
+            {
+              "aisleSide": null,
+              "description": "Aisle information is not available for this product. Please ask a Team Member at $STORE to help you find this product.",
+              "facing": 0,
+              "aisle": null,
+              "order": 9999,
+              "shelf": null
+            }
+          ],
+          "restrictions": {
+            "retailLimit": 20,
+            "promotionalLimit": 12,
+            "liquorAgeRestrictionFlag": false,
+            "tobaccoAgeRestrictionFlag": false,
+            "restrictedByOrganisation": false,
+            "delivery": [
+              "EASTER"
+            ]
+          },
+          "merchandiseHeir": {
+            "tradeProfitCentre": "GROCERY",
+            "categoryGroup": "IMPULSE",
+            "category": "EASTER",
+            "subCategory": "NOVELTIES",
+            "className": "SNGL MED 101-200GM"
+          },
+          "onlineHeirs": [
+            {
+              "aisle": "Easter Chocolate",
+              "category": "Confectionery",
+              "subCategory": "Pantry",
+              "categoryId": "7732",
+              "aisleId": "8893216",
+              "subCategoryId": "10302"
+            },
+            {
+              "aisle": "Easter Eggs & Bunnies",
+              "category": "Easter Chocolates",
+              "subCategory": "Easter",
+              "categoryId": "89412",
+              "aisleId": "8898005",
+              "subCategoryId": "89213"
+            }
+          ],
+          "pricing": {
+            "now": 6.7,
+            "was": 0,
+            "unit": {
+              "quantity": 1,
+              "ofMeasureQuantity": 100,
+              "ofMeasureUnits": "g",
+              "price": 4.47,
+              "ofMeasureType": "g",
+              "isWeighted": false
+            },
+            "comparable": "$4.47 per 100g",
+            "onlineSpecial": false
+          }
+        },
+        {
+          "_type": "SINGLE_TILE",
+          "adId": "shotgun_OiDZVzGERQ75I3p_XqBW3OH9eBkKCgoIODgwNTg2NFASABoMCNnwy68GELGh7qUDIgIIAQ==",
+          "adSource": "citrus",
+          "campaignName": "J9_Ferrero_Single_Tile_Aisle_Easter-f42c47704d75a5866c7a8625f10712ee",
+          "expiry": "2024-03-14T13:15:05.8847075Z",
+          "headingText": "Surprise Them This Easter with Kinder",
+          "bannerText": "Say it with Gold this Easter",
+          "bannerTextColour": "ffffff",
+          "ctaFlag": true,
+          "ctaText": "Shop now",
+          "ctaTextAccessibility": "Shop Now",
+          "ctaLink": "/promotions/ferrero-easter?pid=ctatile_ferrero_br360_20077_3",
+          "backgroundColour": "ffffff",
+          "backgroundImage": "https://coles.flavedo.io/citrus/82eab3e2-d906-4e73-9703-e850228d816e",
+          "backgroundImagePosition": "fill",
+          "secondaryBackgroundImage": null,
+          "secondaryBackgroundImagePosition": null,
+          "heroImage": "https://coles.flavedo.io/citrus/fc81d8db-4d7c-4233-8686-936c1e864edf",
+          "heroImageAltText": "Ferrero Easter",
+          "secondaryHeroImage": null,
+          "secondaryHeroImageAltText": null,
+          "productIds": [
+            "2588548",
+            "2856986",
+            "2588515",
+            "3136461",
+            "8805864"
+          ],
+          "additionalFields": [
+            {
+              "id": "roundelCode",
+              "value": "13"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
