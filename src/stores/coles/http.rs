@@ -20,16 +20,29 @@ pub struct ColesHttpClient {
 }
 
 impl ColesHttpClient {
-    pub fn new(api_key: Option<&str>, version: Option<String>) -> Result<ColesHttpClient, Box<dyn Error>> {
-        let headers = Self::get_headers(api_key)?;
+    pub fn new() -> Result<ColesHttpClient, Box<dyn Error>> {
+        let headers = Self::get_headers(None)?;
         let builder = reqwest::blocking::Client::builder()
             .cookie_store(true)
             .default_headers(headers);
         let client = builder.build()?;
         Ok(ColesHttpClient {
             client,
-            version,
+            version: None,
         })
+    }
+
+    pub fn new_with_setup(api_key: &str, version: String) -> Result<ColesHttpClient, Box<dyn Error>> {
+        let headers = Self::get_headers(Some(api_key))?;
+        let builder = reqwest::blocking::Client::builder()
+            .cookie_store(true)
+            .default_headers(headers);
+        let client = builder.build()?;
+        Ok(ColesHttpClient {
+            client,
+            version: Some(version),
+        })
+
     }
 
     fn get_headers(api_key: Option<&str>) -> Result<HeaderMap, InvalidHeaderValue> {

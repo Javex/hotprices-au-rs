@@ -1,7 +1,7 @@
 use super::{HttpClient, Cache};
 use serde::Deserialize;
 use std::error::Error;
-use crate::stores::coles::Coles;
+use crate::stores::coles::get_cache_key;
 
 #[derive(Deserialize, Debug)]
 struct PricingUnit {
@@ -87,7 +87,7 @@ impl<'a> Category<'a> {
         }
     }
     fn get_category(&self, page: i32) -> Result<SearchResults, Box<dyn Error>> {
-        let path = Coles::get_cache_key(&format!(
+        let path = get_cache_key(&format!(
             "categories/{}/page_{}.json",
             self.slug, page
         ));

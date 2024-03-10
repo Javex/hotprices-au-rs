@@ -50,69 +50,56 @@ struct CategoryFields {
     #[serde(rename = "seoToken")]
     seo_token: String,
 }
-struct Coles<'a> {
-    client: Box<dyn HttpClient>,
-    cache: &'a Box<dyn Cache>,
+
+fn get_cache_key(key: &str) -> String {
+    format!("coles/{}", key)
 }
 
-impl<'a> Coles<'a> {
-    fn new(cache: &'a Box<dyn Cache>) -> Result<Self, Box<dyn Error>> {
-        let client = ColesHttpClient::new(None, None)?;
-        // let cache_path = format!("tmp/test/coles");
-        // let cache: Box<dyn Cache> = match enable_cache {
-        //     true => Box::new(FsCache::new(cache_path)),
-        //     false => Box::new(NullCache {}),
-        // };
-        let (api_key, version) = Self::get_setup_data(&client, &cache)?;
-        let client = ColesHttpClient::new(Some(&api_key), Some(version))?;
-        Ok(Coles {
-            client: Box::new(client),
-            cache,
-        })
-    }
+fn get_setup_data(
+    client: &impl HttpClient,
+    cache: &Box<dyn Cache>,
+) -> Result<(String, String), Box<dyn Error>> {
+    let path = get_cache_key("index.html");
+    let resp = cache.get_or_fetch(path, &|| client.get_setup_data())?;
+    let selector = Selector::parse("script#__NEXT_DATA__")?;
+    let doc = scraper::Html::parse_document(&resp);
+    let next_data_script = match doc.select(&selector).next() {
+        Some(x) => x,
+        None => return Err("couldn't find __NEXT_DATA__ script in HTML".into()),
+    };
+    let next_data_script = next_data_script.inner_html();
+    let next_data: NextData = serde_json::from_str(&next_data_script)?;
+    let api_key = next_data.runtime_config.bff_api_subscription_key;
+    let version = next_data.build_id;
 
-    fn get_cache_key(key: &str) -> String {
-        format!("coles/{}", key)
-    }
+    Ok((api_key, version))
+}
 
-    fn get_setup_data(
-        client: &impl HttpClient,
-        cache: &Box<dyn Cache>,
-    ) -> Result<(String, String), Box<dyn Error>> {
-        let path = Self::get_cache_key("index.html");
-        // let path = String::from("index.html");
-        // let get_setup_data = &|| client.get_setup_data();
-        let resp = cache.get_or_fetch(path, &|| client.get_setup_data())?;
-        let selector = Selector::parse("script#__NEXT_DATA__")?;
-        let doc = scraper::Html::parse_document(&resp);
-        let next_data_script = match doc.select(&selector).next() {
-            Some(x) => x,
-            None => return Err("couldn't find __NEXT_DATA__ script in HTML".into()),
-        };
-        let next_data_script = next_data_script.inner_html();
-        let next_data: NextData = serde_json::from_str(&next_data_script)?;
-        let api_key = next_data.runtime_config.bff_api_subscription_key;
-        let version = next_data.build_id;
+fn get_versioned_client<'a>(
+    cache: &'a Box<dyn Cache>,
+) -> Result<Box<dyn HttpClient>, Box<dyn Error>> {
+    let client = ColesHttpClient::new()?;
+    let (api_key, version) = get_setup_data(&client, &cache)?;
+    let client = ColesHttpClient::new_with_setup(&api_key, version)?;
+    Ok(Box::new(client))
+}
 
-        Ok((api_key, version))
-    }
+fn get_categories<'a>(
+    cache: &'a Box<dyn Cache>,
+    client: &'a Box<dyn HttpClient>,
+) -> Result<Vec<category::Category<'a>>, Box<dyn Error>> {
+    let path = get_cache_key("categories.json");
+    let resp = cache.get_or_fetch(path, &|| client.get_categories())?;
+    let categories: Categories = serde_json::from_str(&resp)?;
+    let categories = categories.get_items(client, cache);
 
-    fn get_categories(&self) -> Result<Vec<category::Category>, Box<dyn Error>> {
-        let path = Self::get_cache_key("categories.json");
-        let resp = self
-            .cache
-            .get_or_fetch(path, &|| self.client.get_categories())?;
-        let categories: Categories = serde_json::from_str(&resp)?;
-        let categories = categories.get_items(&self.client, &self.cache);
-
-        Ok(categories)
-    }
+    Ok(categories)
 }
 
 pub fn fetch(cache: &Box<dyn Cache>) {
     log::info!("Starting fetch for coles");
-    let coles = Coles::new(cache).unwrap();
-    let categories = coles.get_categories().unwrap();
+    let client = get_versioned_client(cache).unwrap();
+    let categories = get_categories(cache, &client).unwrap();
     let mut counter = 0;
     println!("{}", categories.len());
     for category in categories {
