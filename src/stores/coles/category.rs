@@ -1,4 +1,8 @@
-use super::{HttpClient, Cache};
+use mockall_double::double;
+#[double]
+use super::http::ColesHttpClient;
+#[double]
+use crate::cache::FsCache;
 use serde::Deserialize;
 use std::error::Error;
 use crate::stores::coles::get_cache_key;
@@ -61,20 +65,20 @@ struct CategoryJson {
 }
 
 pub struct Category<'a> {
-    client: &'a Box<dyn HttpClient>,
+    client: &'a ColesHttpClient,
     slug: String,
     buf: Vec<serde_json::Value>,
     page: i32,
     product_count: i64,
     finished: bool,
-    cache: &'a Box<dyn Cache>,
+    cache: &'a FsCache,
 }
 
 impl<'a> Category<'a> {
     pub fn new(
         cat_slug: &str,
-        client: &'a Box<dyn HttpClient>,
-        cache: &'a Box<dyn Cache>,
+        client: &'a ColesHttpClient,
+        cache: &'a FsCache,
     ) -> Category<'a> {
         Category {
             client,

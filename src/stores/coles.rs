@@ -1,9 +1,12 @@
 mod category;
 mod http;
 
-use crate::cache::Cache;
-use http::{ColesHttpClient, HttpClient};
+#[double]
+use crate::cache::FsCache;
+#[double]
+use http::ColesHttpClient;
 use log;
+use mockall_double::double;
 use scraper::Selector;
 use serde::Deserialize;
 use std::error::Error;
@@ -33,8 +36,8 @@ struct Categories {
 impl Categories {
     fn get_items<'a>(
         &self,
-        client: &'a Box<dyn HttpClient>,
-        cache: &'a Box<dyn Cache>,
+        client: &'a ColesHttpClient,
+        cache: &'a FsCache,
     ) -> Vec<category::Category<'a>> {
         self.catalog_group_view
             .iter()
@@ -56,8 +59,8 @@ fn get_cache_key(key: &str) -> String {
 }
 
 fn get_setup_data(
-    client: &impl HttpClient,
-    cache: &Box<dyn Cache>,
+    client: &ColesHttpClient,
+    cache: &FsCache,
 ) -> Result<(String, String), Box<dyn Error>> {
     let path = get_cache_key("index.html");
     let resp = cache.get_or_fetch(path, &|| client.get_setup_data())?;
@@ -76,17 +79,17 @@ fn get_setup_data(
 }
 
 fn get_versioned_client<'a>(
-    cache: &'a Box<dyn Cache>,
-) -> Result<Box<dyn HttpClient>, Box<dyn Error>> {
-    let client = ColesHttpClient::new()?;
-    let (api_key, version) = get_setup_data(&client, &cache)?;
+    cache: &'a FsCache,
+    client: &ColesHttpClient,
+) -> Result<ColesHttpClient, Box<dyn Error>> {
+    let (api_key, version) = get_setup_data(client, &cache)?;
     let client = ColesHttpClient::new_with_setup(&api_key, version)?;
-    Ok(Box::new(client))
+    Ok(client)
 }
 
 fn get_categories<'a>(
-    cache: &'a Box<dyn Cache>,
-    client: &'a Box<dyn HttpClient>,
+    cache: &'a FsCache,
+    client: &'a ColesHttpClient,
 ) -> Result<Vec<category::Category<'a>>, Box<dyn Error>> {
     let path = get_cache_key("categories.json");
     let resp = cache.get_or_fetch(path, &|| client.get_categories())?;
@@ -96,9 +99,10 @@ fn get_categories<'a>(
     Ok(categories)
 }
 
-pub fn fetch(cache: &Box<dyn Cache>) {
+pub fn fetch(cache: &FsCache) {
     log::info!("Starting fetch for coles");
-    let client = get_versioned_client(cache).unwrap();
+    let client = ColesHttpClient::new().unwrap();
+    let client = get_versioned_client(cache, &client).unwrap();
     let categories = get_categories(cache, &client).unwrap();
     let mut counter = 0;
     println!("{}", categories.len());
@@ -118,35 +122,9 @@ pub fn fetch(cache: &Box<dyn Cache>) {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use std::fs;
     use std::path::PathBuf;
-
-    use crate::cache::NullCache;
-
-    use super::http::HttpClient;
-    use super::Cache;
-    use super::Coles;
-
-    struct MockHttpClient {
-        response: String,
-    }
-
-    impl HttpClient for MockHttpClient {
-        fn get(self: &Self, _url: &str) -> reqwest::Result<String> {
-            reqwest::Result::Ok(self.response.clone())
-        }
-        fn get_setup_data(&self) -> reqwest::Result<String> {
-            self.get("")
-        }
-
-        fn get_categories(&self) -> reqwest::Result<String> {
-            self.get("")
-        }
-
-        fn get_category(&self, _slug: &str, _page: i32) -> reqwest::Result<String> {
-            self.get("")
-        }
-    }
 
     pub fn load_file(fname: &str) -> String {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -157,10 +135,16 @@ mod test {
 
     #[test]
     fn test_get_setup_data() {
-        let file = load_file("index/index_good.html");
-        let client = MockHttpClient { response: file };
-        let cache: Box<dyn Cache> = Box::new(NullCache {});
-        let (api_key, version) = Coles::get_setup_data(&client, &cache).expect("Expected success");
+        let mut client = ColesHttpClient::default();
+        client.expect_get_setup_data().times(1).returning(|| {
+            let file = load_file("index/index_good.html");
+            reqwest::Result::Ok(file)
+        });
+        let mut cache = FsCache::default();
+        cache.expect_get_or_fetch().returning(|file, fetch| {
+            Ok(fetch()?)
+        });
+        let (api_key, version) = get_setup_data(&client, &cache).expect("Expected success");
         assert_eq!(version, "20240101.01_v1.01.0");
         assert_eq!(api_key, "testsubkey");
     }

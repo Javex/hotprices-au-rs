@@ -1,18 +1,17 @@
+use std::error::Error;
 use std::fs::{create_dir_all, read_to_string, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
-use std::error::Error;
+
+use mockall::automock;
 
 pub type FetchCallback<'a> = &'a dyn Fn() -> reqwest::Result<String>;
-
-pub trait Cache {
-    fn get_or_fetch(&self, file: String, fetch: FetchCallback) -> Result<String, Box<dyn Error>>;
-}
 
 pub struct FsCache {
     path: PathBuf,
 }
 
+#[automock]
 impl FsCache {
     pub fn new(path: String) -> FsCache {
         let path = PathBuf::from(path);
@@ -32,17 +31,14 @@ impl FsCache {
     fn load(&self, path: &PathBuf) -> std::io::Result<String> {
         read_to_string(path)
     }
-}
 
-impl Cache for FsCache {
-    fn get_or_fetch(&self, file: String, fetch: FetchCallback) -> Result<String, Box<dyn Error>>
-    {
+    pub fn get_or_fetch<'a>(&self, file: String, fetch: FetchCallback<'a>) -> Result<String, Box<dyn Error>> {
         let path = self.path.join(file.clone());
         match path.exists() {
             true => {
                 log::debug!("get_or_fetch: Loading file \"{file}\" from cache");
-Ok(self.load(&path)?)
-            },
+                Ok(self.load(&path)?)
+            }
             false => {
                 log::debug!("get_or_fetch: Loading file \"{file}\" from backend");
                 let resp = fetch()?;
@@ -50,14 +46,5 @@ Ok(self.load(&path)?)
                 Ok(resp)
             }
         }
-    }
-}
-
-pub struct NullCache {}
-
-impl Cache for NullCache {
-    fn get_or_fetch(&self, _file: String, fetch: FetchCallback) -> Result<String, Box<dyn Error>>
-    {
-        Ok(fetch()?)
     }
 }
