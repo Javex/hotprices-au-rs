@@ -74,3 +74,20 @@ impl ColesHttpClient {
         self.get(&url)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use core::panic;
+
+    use super::*;
+
+    #[test]
+    fn new_unconfigured_fails_get_category() {
+        let client = ColesHttpClient::new().unwrap();
+        let res = client.get_category("", 0).unwrap_err();
+        match res {
+            Error::Message(m) => assert_eq!(m, "Must set version"),
+            e => panic!("Unexpected error type: {}", e),
+        }
+    }
+}
