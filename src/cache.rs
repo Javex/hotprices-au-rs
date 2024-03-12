@@ -13,8 +13,7 @@ pub struct FsCache {
 
 #[automock]
 impl FsCache {
-    pub fn new(path: String) -> FsCache {
-        let path = PathBuf::from(path);
+    pub fn new(path: PathBuf) -> FsCache {
         FsCache { path }
     }
 
