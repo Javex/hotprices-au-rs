@@ -1,7 +1,6 @@
+use crate::errors::{Error, Result};
 use mockall::automock;
-use reqwest::header::{self, InvalidHeaderValue};
-use reqwest::header::{HeaderMap, HeaderValue};
-use std::error::Error;
+use reqwest::header::{self, HeaderMap, HeaderValue};
 
 const BASE_URL: &str = "https://www.coles.com.au";
 const URL_HEADER: HeaderValue = HeaderValue::from_static(BASE_URL);
@@ -15,7 +14,7 @@ pub struct ColesHttpClient {
 
 #[automock]
 impl ColesHttpClient {
-    pub fn new() -> Result<Self, Box<dyn Error>> {
+    pub fn new() -> Result<Self> {
         let headers = Self::get_headers(None)?;
         let builder = reqwest::blocking::Client::builder()
             .cookie_store(true)
@@ -27,7 +26,7 @@ impl ColesHttpClient {
         })
     }
 
-    pub fn new_with_setup(api_key: &str, version: String) -> Result<Self, Box<dyn Error>> {
+    pub fn new_with_setup(api_key: &str, version: String) -> Result<Self> {
         let headers = Self::get_headers(Some(api_key))?;
         let builder = reqwest::blocking::Client::builder()
             .cookie_store(true)
@@ -37,10 +36,9 @@ impl ColesHttpClient {
             client,
             version: Some(version),
         })
-
     }
 
-    fn get_headers<'a>(api_key: Option<&'a str>) -> Result<HeaderMap, InvalidHeaderValue> {
+    fn get_headers<'a>(api_key: Option<&'a str>) -> Result<HeaderMap> {
         let mut headers = HeaderMap::new();
         headers.insert(header::USER_AGENT, USER_AGENT);
         headers.insert(header::ORIGIN, URL_HEADER);
@@ -51,22 +49,25 @@ impl ColesHttpClient {
         Ok(headers)
     }
 
-    fn get(&self, url: &str) -> reqwest::Result<String> {
+    fn get(&self, url: &str) -> Result<String> {
         log::debug!("Loading url '{url}'");
-        self.client.get(url).send()?.error_for_status()?.text()
+        Ok(self.client.get(url).send()?.error_for_status()?.text()?)
     }
 
-    pub fn get_setup_data(&self) -> reqwest::Result<String> {
+    pub fn get_setup_data(&self) -> Result<String> {
         self.get(BASE_URL)
     }
 
-    pub fn get_categories(&self) -> reqwest::Result<String> {
+    pub fn get_categories(&self) -> Result<String> {
         let cat_url = format!("{BASE_URL}/api/bff/products/categories?storeId={STORE_ID}");
         self.get(&cat_url)
     }
 
-    pub fn get_category(&self, slug: &str, page: i32) -> reqwest::Result<String> {
-        let version = &self.version.as_ref().expect("Must set version");
+    pub fn get_category(&self, slug: &str, page: i32) -> Result<String> {
+        let version = &self
+            .version
+            .as_ref()
+            .ok_or(Error::Message("Must set version".to_string()))?;
         let url = format!(
             "{BASE_URL}/_next/data/{version}/en/browse/{slug}.json?page={page}&slug={slug}"
         );

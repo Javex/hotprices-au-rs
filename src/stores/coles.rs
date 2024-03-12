@@ -138,7 +138,7 @@ mod test {
         let mut client = ColesHttpClient::default();
         client.expect_get_setup_data().times(1).returning(|| {
             let file = load_file("index/index_good.html");
-            reqwest::Result::Ok(file)
+            Result::Ok(file)
         });
         let mut cache = FsCache::default();
         cache.expect_get_or_fetch().returning(|file, fetch| {

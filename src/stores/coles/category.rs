@@ -1,11 +1,11 @@
-use mockall_double::double;
 #[double]
 use super::http::ColesHttpClient;
 #[double]
 use crate::cache::FsCache;
-use serde::Deserialize;
-use std::error::Error;
+use crate::errors::{Error, Result};
 use crate::stores::coles::get_cache_key;
+use mockall_double::double;
+use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 struct PricingUnit {
@@ -75,11 +75,7 @@ pub struct Category<'a> {
 }
 
 impl<'a> Category<'a> {
-    pub fn new(
-        cat_slug: &str,
-        client: &'a ColesHttpClient,
-        cache: &'a FsCache,
-    ) -> Category<'a> {
+    pub fn new(cat_slug: &str, client: &'a ColesHttpClient, cache: &'a FsCache) -> Category<'a> {
         Category {
             client,
             slug: cat_slug.to_string(),
@@ -90,11 +86,8 @@ impl<'a> Category<'a> {
             cache,
         }
     }
-    fn get_category(&self, page: i32) -> Result<SearchResults, Box<dyn Error>> {
-        let path = get_cache_key(&format!(
-            "categories/{}/page_{}.json",
-            self.slug, page
-        ));
+    fn get_category(&self, page: i32) -> Result<SearchResults> {
+        let path = get_cache_key(&format!("categories/{}/page_{}.json", self.slug, page));
         let fetch = &|| self.client.get_category(&self.slug, page);
         let resp = self.cache.get_or_fetch(path, fetch)?;
         let json_data: CategoryJson = serde_json::from_str(&resp)?;
@@ -103,7 +96,7 @@ impl<'a> Category<'a> {
 }
 
 impl<'a> Iterator for Category<'a> {
-    type Item = Result<serde_json::Value, Box<dyn Error>>;
+    type Item = Result<serde_json::Value>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.buf.len() == 0 && !self.finished {
