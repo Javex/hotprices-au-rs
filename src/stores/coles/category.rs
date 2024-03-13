@@ -7,6 +7,8 @@ use crate::stores::coles::get_cache_key;
 use mockall_double::double;
 use serde::Deserialize;
 
+const IGNORED_RESULT_TYPES: [&str; 2] = ["SINGLE_TILE", "CONTENT_ASSOCIATION"];
+
 #[derive(Deserialize, Debug)]
 struct PricingUnit {
     quantity: f64,
@@ -31,16 +33,51 @@ struct Pricing {
 
 #[derive(Deserialize, Debug)]
 struct SearchResult {
-    #[serde(rename = "_type")]
-    product_type: String,
-    #[serde(rename = "adId")]
-    ad_id: Option<String>,
     id: i64,
     name: String,
     brand: String,
     description: String,
     size: String,
     pricing: Pricing,
+}
+
+impl SearchResult {
+    fn from_json_value(mut value: serde_json::Value) -> Result<Option<SearchResult>> {
+        let obj = match &value {
+            serde_json::Value::Object(map) => map,
+            x => {
+                return Err(Error::Message(format!(
+                    "Invalid object type value for {}",
+                    x
+                )))
+            }
+        };
+
+        // _type field must be present
+        let result_type = obj
+            .get("_type")
+            .ok_or(Error::Message("Missing key _type".to_string()))?;
+        let result_type = match result_type {
+            serde_json::Value::String(s) => s,
+            x => {
+                return Err(Error::Message(format!(
+                    "Invalid type for _type, expected string: {}",
+                    x
+                )))
+            }
+        };
+
+        // Ads are ignored here
+        if IGNORED_RESULT_TYPES.contains(&result_type.as_str())
+            && obj.get("adId").is_some_and(|x| !x.is_null())
+        {
+            return Ok(None);
+        }
+
+        let search_result: SearchResult = serde_json::from_value(value)?;
+
+        Ok(Some(search_result))
+    }
 }
 
 #[derive(Deserialize)]
@@ -127,10 +164,38 @@ impl<'a> Iterator for Category<'a> {
 
 #[cfg(test)]
 mod test {
+    use crate::stores::coles::category::SearchResult;
+
     use super::super::test::load_file;
     #[test]
-    fn test_load_json() {
-        let file = load_file("page_1.json");
-        let _json_data: super::CategoryJson = serde_json::from_str(&file).unwrap();
+    fn test_load_empty_search_results() {
+        let file = load_file("empty_search_results.json");
+        let json_data: super::CategoryJson = serde_json::from_str(&file).unwrap();
+        let search_results = json_data.page_props.search_results;
+        assert_eq!(search_results.no_of_results, 749);
+        let results = search_results.results;
+        assert_eq!(results.len(), 0);
+        // let _ad = results.pop().unwrap();
+    }
+
+    #[test]
+    fn test_load_product() {
+        let file = load_file("product.json");
+        let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
+
+        let product = SearchResult::from_json_value(json_data)
+            .expect("Returned error instead of result")
+            .expect("Returned None instead of Some");
+        assert_eq!(product.id, 1113465);
+    }
+
+    #[test]
+    fn test_load_ad() {
+        let file = load_file("ad.json");
+        let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
+
+        let ad = SearchResult::from_json_value(json_data)
+            .expect("Returned error instead of result");
+        assert!(ad.is_none());
     }
 }
