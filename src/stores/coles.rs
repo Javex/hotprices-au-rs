@@ -1,4 +1,4 @@
-mod category;
+pub mod category;
 mod http;
 
 #[double]

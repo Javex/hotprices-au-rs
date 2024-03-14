@@ -1,0 +1,18 @@
+{
+  "_type": "PRODUCT",
+  "id": 42,
+  "adId": null,
+  "name": "Product name",
+  "brand": "",
+  "description": "BRAND NAME PRODUCT NAME 150G",
+  "size": "150g",
+  "pricing": {
+    "now": 6.7,
+    "unit": {
+      "quantity": 1,
+      "ofMeasureUnits": "g",
+      "isWeighted": false
+    },
+    "comparable": "$4.47 per 100g"
+  }
+}

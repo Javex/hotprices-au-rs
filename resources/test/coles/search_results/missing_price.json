@@ -1,0 +1,10 @@
+{
+  "_type": "PRODUCT",
+  "id": 42,
+  "adId": null,
+  "name": "Product name",
+  "brand": "Brand name",
+  "description": "BRAND NAME PRODUCT NAME 150G",
+  "size": "150g",
+  "pricing": null
+}

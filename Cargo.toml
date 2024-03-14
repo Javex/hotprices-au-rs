@@ -7,11 +7,17 @@ edition = "2021"
 
 [dependencies]
 env_logger = "0.11.3"
+flate2 = "1.0.28"
+itertools = "0.12.1"
+lazy_static = "1.4.0"
 log = "0.4.21"
 mockall = "0.12.1"
 mockall_double = "0.3.1"
+regex = "1.10.3"
 reqwest = { version = "0.11.24", features = ["blocking", "json", "cookies"] }
 scraper = "0.19.0"
 serde = { version = "1.0.197", features = ["serde_derive"] }
 serde_json = "1.0.114"
+tempfile = "3.10.1"
 thiserror = "1.0.58"
+time = "0.3.34"

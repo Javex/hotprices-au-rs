@@ -6,25 +6,22 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("Http error: {message:?}")]
     Http {
         url: Option<reqwest::Url>,
         status: Option<reqwest::StatusCode>,
         message: String,
     },
+    #[error("Invalid header errro")]
     InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
+    #[error("Io error")]
     IoError(#[from] std::io::Error),
+    #[error("{0}")]
     Message(String),
+    #[error("Serde error: {0}")]
     SerdeJson(#[from] serde_json::Error),
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let message = match self {
-            Error::Http { message, .. } => message.to_string(),
-            e => e.to_string(),
-        };
-        write!(f, "{}", message)
-    }
+    #[error("Conversion error")]
+    ProductConversion,
 }
 
 impl From<reqwest::Error> for Error {

@@ -50,13 +50,12 @@ impl FsCache {
 
 #[cfg(test)]
 mod test {
-    use std::env::temp_dir;
     use super::*;
 
     fn get_cache() -> FsCache {
         // create temporary folder to operate in
-        let tmp = temp_dir();
-        FsCache::new(tmp)
+        let tmp = tempfile::tempdir().unwrap();
+        FsCache::new(tmp.path().to_owned())
     }
 
     #[test]
@@ -64,6 +63,15 @@ mod test {
         let cache = get_cache();
         let res = cache.get_or_fetch(String::from("test"), &|| Ok(String::from("1"))).unwrap();
         assert_eq!(res, "1");
+    }
+
+    #[test]
+    fn it_forgets_cache() {
+        let cache = get_cache();
+        cache.get_or_fetch(String::from("test"), &|| Ok(String::from("1"))).unwrap();
+        let cache = get_cache();
+        let res = cache.get_or_fetch(String::from("test"), &|| Ok(String::from("2"))).unwrap();
+        assert_eq!(res, "2");
     }
 
     #[test]
