@@ -1,4 +1,5 @@
 pub mod category;
+pub mod product;
 mod http;
 
 #[double]

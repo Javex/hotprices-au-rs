@@ -1,6 +1,6 @@
 use flate2::read::GzDecoder;
 use hotprices_au_rs::cache::FsCache;
-use hotprices_au_rs::stores::coles::category::load_from_legacy;
+use hotprices_au_rs::stores::coles::product::load_from_legacy;
 use hotprices_au_rs::stores::coles::fetch;
 use std::fs::File;
 use std::io::{BufReader, Read};
