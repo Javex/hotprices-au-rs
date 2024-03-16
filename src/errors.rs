@@ -4,12 +4,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Http error: {message:?}")]
-    Http {
-        url: Option<reqwest::Url>,
-        status: Option<reqwest::StatusCode>,
-        message: String,
-    },
+    #[error("{0}")]
+    Http(#[from] Box<ureq::Error>),
     #[error("Invalid header errro")]
     InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
     #[error("Io error")]
@@ -20,14 +16,4 @@ pub enum Error {
     SerdeJson(#[from] serde_json::Error),
     #[error("Conversion error: {0}")]
     ProductConversion(String),
-}
-
-impl From<reqwest::Error> for Error {
-    fn from(err: reqwest::Error) -> Self {
-        Self::Http {
-            url: err.url().cloned(),
-            status: err.status(),
-            message: err.to_string(),
-        }
-    }
 }

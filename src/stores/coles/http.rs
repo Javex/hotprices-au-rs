@@ -1,58 +1,104 @@
+use std::{thread, time::Duration};
+
 use crate::errors::{Error, Result};
+use cookie_store::CookieStore;
+use log::{error, info};
 use mockall::automock;
-use reqwest::header::{self, HeaderMap, HeaderValue};
 
 const BASE_URL: &str = "https://www.coles.com.au";
-static URL_HEADER: HeaderValue = HeaderValue::from_static(BASE_URL);
-static USER_AGENT: HeaderValue = HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36");
+const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36";
 const STORE_ID: &str = "0584";
 
+struct RetryPolicy {
+    total: u32,
+    max_backoff: Duration,
+}
+
+impl RetryPolicy {
+    fn get_backoff_time(&self, retry_count: u32) -> Duration {
+        let backoff_value = Duration::from_secs(2u64.pow(retry_count));
+        if backoff_value > self.max_backoff {
+            self.max_backoff
+        } else {
+            backoff_value
+        }
+    }
+}
+
 pub struct ColesHttpClient {
-    client: reqwest::blocking::Client,
+    client: ureq::Agent,
     version: Option<String>,
+    api_key: Option<String>,
+    retry_policy: RetryPolicy,
 }
 
 #[automock]
 #[allow(dead_code)]
 impl ColesHttpClient {
     pub fn new() -> Result<Self> {
-        let headers = Self::get_headers(None)?;
-        let builder = reqwest::blocking::Client::builder()
-            .cookie_store(true)
-            .default_headers(headers);
-        let client = builder.build()?;
-        Ok(ColesHttpClient {
-            client,
-            version: None,
-        })
+        Self::new_client(None, None)
     }
 
     pub fn new_with_setup(api_key: &str, version: String) -> Result<Self> {
-        let headers = Self::get_headers(Some(api_key))?;
-        let builder = reqwest::blocking::Client::builder()
-            .cookie_store(true)
-            .default_headers(headers);
-        let client = builder.build()?;
-        Ok(ColesHttpClient {
-            client,
-            version: Some(version),
-        })
+        Self::new_client(Some(String::from(api_key)), Some(version))
     }
 
-    fn get_headers<'a>(api_key: Option<&'a str>) -> Result<HeaderMap> {
-        let mut headers = HeaderMap::new();
-        headers.insert(header::USER_AGENT, USER_AGENT.clone());
-        headers.insert(header::ORIGIN, URL_HEADER.clone());
-        headers.insert(header::REFERER, URL_HEADER.clone());
-        if let Some(api_key) = api_key {
-            headers.insert("ocp-apim-subscription-key", HeaderValue::from_str(api_key)?);
-        }
-        Ok(headers)
+    fn new_client(api_key: Option<String>, version: Option<String>) -> Result<Self> {
+        let cookie_store = CookieStore::new(None);
+        let client = ureq::builder()
+            .cookie_store(cookie_store)
+            .user_agent(USER_AGENT)
+            .timeout(Duration::from_secs(30))
+            .build();
+        Ok(ColesHttpClient {
+            client,
+            version,
+            api_key,
+            retry_policy: RetryPolicy {
+                total: 10,
+                max_backoff: Duration::from_secs(120),
+            },
+        })
     }
 
     fn get(&self, url: &str) -> Result<String> {
         log::debug!("Loading url '{url}'");
-        Ok(self.client.get(url).send()?.error_for_status()?.text()?)
+        for retry_count in 0..self.retry_policy.total {
+            let request = self
+                .client
+                .get(url)
+                .set("Origin", BASE_URL)
+                .set("Referer", BASE_URL);
+            let request = match &self.api_key {
+                Some(api_key) => request.set("ocp-apim-subscription-key", api_key),
+                None => request,
+            };
+
+            let response = match request.call() {
+                Ok(response) => response,
+                Err(error) => {
+                    if retry_count < self.retry_policy.total - 1 {
+                        let sleep_time = self.retry_policy.get_backoff_time(retry_count);
+                        info!(
+                            "Retrying request after {} seconds due to error {}",
+                            sleep_time.as_secs(),
+                            error
+                        );
+                        thread::sleep(sleep_time);
+                        continue;
+                    }
+
+                    error!(
+                        "Failed request after {} retries, giving up due to error {}",
+                        retry_count, error
+                    );
+                    return Err(Error::Http(Box::new(error)));
+                }
+            };
+
+            return Ok(response.into_string()?);
+        }
+        panic!("Ended retry loop unexpectedly");
     }
 
     pub fn get_setup_data(&self) -> Result<String> {
