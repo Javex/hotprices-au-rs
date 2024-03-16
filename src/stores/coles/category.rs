@@ -4,6 +4,7 @@ use super::http::ColesHttpClient;
 use crate::cache::FsCache;
 use crate::errors::Result;
 use crate::stores::coles::get_cache_key;
+use log::debug;
 use mockall_double::double;
 use serde::Deserialize;
 
@@ -73,8 +74,8 @@ impl<'a> Iterator for Category<'a> {
             if self.product_count >= search_results.no_of_results {
                 self.finished = true;
             }
-            println!(
-                "product_count: {}, finished: {}, buf.len(): {}",
+            debug!(
+                "New page with results loaded in iterator. Product count: {}, finished: {}, buffer size: {}",
                 self.product_count,
                 self.finished,
                 self.buf.len()
@@ -87,8 +88,8 @@ impl<'a> Iterator for Category<'a> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use super::super::test::load_file;
+    use super::*;
     #[test]
     fn test_load_empty_search_results() {
         let file = load_file("empty_search_results.json");
