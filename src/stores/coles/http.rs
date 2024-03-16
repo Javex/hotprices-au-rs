@@ -3,8 +3,8 @@ use mockall::automock;
 use reqwest::header::{self, HeaderMap, HeaderValue};
 
 const BASE_URL: &str = "https://www.coles.com.au";
-const URL_HEADER: HeaderValue = HeaderValue::from_static(BASE_URL);
-const USER_AGENT: HeaderValue = HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36");
+static URL_HEADER: HeaderValue = HeaderValue::from_static(BASE_URL);
+static USER_AGENT: HeaderValue = HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36");
 const STORE_ID: &str = "0584";
 
 pub struct ColesHttpClient {
@@ -13,6 +13,7 @@ pub struct ColesHttpClient {
 }
 
 #[automock]
+#[allow(dead_code)]
 impl ColesHttpClient {
     pub fn new() -> Result<Self> {
         let headers = Self::get_headers(None)?;
@@ -40,9 +41,9 @@ impl ColesHttpClient {
 
     fn get_headers<'a>(api_key: Option<&'a str>) -> Result<HeaderMap> {
         let mut headers = HeaderMap::new();
-        headers.insert(header::USER_AGENT, USER_AGENT);
-        headers.insert(header::ORIGIN, URL_HEADER);
-        headers.insert(header::REFERER, URL_HEADER);
+        headers.insert(header::USER_AGENT, USER_AGENT.clone());
+        headers.insert(header::ORIGIN, URL_HEADER.clone());
+        headers.insert(header::REFERER, URL_HEADER.clone());
         if let Some(api_key) = api_key {
             headers.insert("ocp-apim-subscription-key", HeaderValue::from_str(api_key)?);
         }
@@ -89,5 +90,10 @@ mod test {
             Error::Message(m) => assert_eq!(m, "Must set version"),
             e => panic!("Unexpected error type: {}", e),
         }
+    }
+
+    #[test]
+    fn new_with_setup() {
+        ColesHttpClient::new_with_setup("", String::from("")).unwrap();
     }
 }

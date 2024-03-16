@@ -1,5 +1,4 @@
 use time::Date;
-use serde::Deserialize;
 
 
 #[derive(Debug)]
@@ -9,7 +8,6 @@ pub struct Product {
     pub description: String,
     // this should probably be a function that looks in price history
     // price: f64,
-    // #[serde(rename = "PriceHistory")]
     pub price_history: Vec<PriceHistory>,
     pub is_weighted: bool,
     pub unit: Unit,

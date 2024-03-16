@@ -20,10 +20,10 @@ impl FsCache {
     fn store(&self, path: &PathBuf, resp: &str) -> std::io::Result<()> {
         // Ensure directory tree exists
         // Guaranteed to have a parent
-        create_dir_all(&path.parent().unwrap())?;
+        create_dir_all(path.parent().unwrap())?;
 
         // Save page
-        let mut file = File::create(&path)?;
+        let mut file = File::create(path)?;
         file.write_all(resp.as_bytes())
     }
 

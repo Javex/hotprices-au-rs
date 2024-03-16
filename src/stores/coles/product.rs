@@ -7,7 +7,6 @@ use itertools::{Either, Itertools};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Deserialize;
-use std::collections::HashMap;
 use std::io::Read;
 use time::OffsetDateTime;
 
@@ -15,7 +14,6 @@ const IGNORED_RESULT_TYPES: [&str; 2] = ["SINGLE_TILE", "CONTENT_ASSOCIATION"];
 
 lazy_static! {
     static ref UNIT_REGEX: Vec<Regex> = vec![Regex::new(
-        // r#"^.* (?P<quantity>[0-9]+)(?P<unit>[a-z]+):(pack(?P<count>[0-9]+)|(?P<each>ea))"#
         r#"(?P<quantity>[0-9]+) ?(?P<unit>[a-z]+)"#
     )
     .unwrap(),];
@@ -27,9 +25,6 @@ lazy_static! {
 
 #[derive(Deserialize, Debug)]
 struct PricingUnit {
-    quantity: f64,
-    #[serde(rename = "ofMeasureUnits")]
-    of_measure_units: Option<String>,
     #[serde(rename = "isWeighted")]
     is_weighted: Option<bool>,
 }
@@ -38,7 +33,6 @@ struct PricingUnit {
 struct Pricing {
     now: f64,
     unit: PricingUnit,
-    comparable: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -52,7 +46,7 @@ pub struct SearchResult {
 }
 
 impl SearchResult {
-    fn from_json_value(mut value: serde_json::Value) -> Result<Option<SearchResult>> {
+    fn from_json_value(value: serde_json::Value) -> Result<Option<SearchResult>> {
         let obj = match &value {
             serde_json::Value::Object(map) => map,
             x => {
@@ -156,10 +150,6 @@ fn normalise_unit(unit: &str) -> Result<(f64, Unit)> {
     };
     Ok((factor, unit))
 }
-//
-// fn parse_comparable(item: &SearchResult) -> Result<(i64, Unit)> {
-//     todo!()
-// }
 
 impl TryFrom<SearchResult> for Product {
     type Error = Error;
@@ -300,10 +290,7 @@ mod test {
         assert_eq!(product.size, "150g");
         let pricing = product.pricing.expect("Price should not be missing");
         assert_eq!(pricing.now, 6.7);
-        assert_eq!(pricing.comparable, "$4.47 per 100g");
         let unit = pricing.unit;
-        assert_eq!(unit.quantity, 1.0);
-        assert_eq!(unit.of_measure_units.unwrap(), "g");
         assert!(!unit.is_weighted.unwrap());
     }
 

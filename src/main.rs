@@ -1,11 +1,11 @@
-use flate2::bufread::GzDecoder as BufGzDecoder;
 use flate2::read::GzDecoder;
 use hotprices_au_rs::cache::FsCache;
-use hotprices_au_rs::stores::coles::product::load_from_legacy;
 use hotprices_au_rs::stores::coles::fetch;
-use std::fs::{self, File};
-use std::io::{BufReader, Read};
+use hotprices_au_rs::stores::coles::product::load_from_legacy;
+use std::fs::File;
+use std::io::BufReader;
 use std::path::PathBuf;
+use time::OffsetDateTime;
 
 fn configure_logging() {
     let mut builder = env_logger::Builder::new();
@@ -16,10 +16,10 @@ fn configure_logging() {
 
 fn main() {
     configure_logging();
-    // let day = "2024-03-10";
-    // let cache_path = PathBuf::from(format!("output/{day}"));
-    // let cache: FsCache = FsCache::new(cache_path);
-    // fetch(&cache);
+    let day = OffsetDateTime::now_utc().date().to_string();
+    let cache_path = PathBuf::from(format!("output/{day}"));
+    let cache: FsCache = FsCache::new(cache_path);
+    fetch(&cache);
     load_legacy_products();
 }
 

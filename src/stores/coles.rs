@@ -61,10 +61,8 @@ fn get_cache_key(key: &str) -> String {
 
 fn get_setup_data(
     client: &ColesHttpClient,
-    cache: &FsCache,
 ) -> Result<(String, String), Box<dyn Error>> {
-    let path = get_cache_key("index.html");
-    let resp = cache.get_or_fetch(path, &|| client.get_setup_data())?;
+    let resp = client.get_setup_data()?;
     let selector = Selector::parse("script#__NEXT_DATA__")?;
     let doc = scraper::Html::parse_document(&resp);
     let next_data_script = match doc.select(&selector).next() {
@@ -79,11 +77,10 @@ fn get_setup_data(
     Ok((api_key, version))
 }
 
-fn get_versioned_client<'a>(
-    cache: &'a FsCache,
+fn get_versioned_client(
     client: &ColesHttpClient,
 ) -> Result<ColesHttpClient, Box<dyn Error>> {
-    let (api_key, version) = get_setup_data(client, &cache)?;
+    let (api_key, version) = get_setup_data(client)?;
     let client = ColesHttpClient::new_with_setup(&api_key, version)?;
     Ok(client)
 }
@@ -92,8 +89,7 @@ fn get_categories<'a>(
     cache: &'a FsCache,
     client: &'a ColesHttpClient,
 ) -> Result<Vec<category::Category<'a>>, Box<dyn Error>> {
-    let path = get_cache_key("categories.json");
-    let resp = cache.get_or_fetch(path, &|| client.get_categories())?;
+    let resp = client.get_categories()?;
     let categories: Categories = serde_json::from_str(&resp)?;
     let categories = categories.get_items(client, cache);
 
@@ -103,20 +99,12 @@ fn get_categories<'a>(
 pub fn fetch(cache: &FsCache) {
     log::info!("Starting fetch for coles");
     let client = ColesHttpClient::new().unwrap();
-    let client = get_versioned_client(cache, &client).unwrap();
+    let client = get_versioned_client(&client).unwrap();
     let categories = get_categories(cache, &client).unwrap();
-    let mut counter = 0;
     println!("{}", categories.len());
     for category in categories {
         for prod in category {
             let _prod = prod.unwrap();
-            counter += 1;
-            if counter == 1 {
-                // println!("{:#?}", _prod);
-                return ();
-            }
-            println!("{}", counter);
-            // break;
         }
     }
 }
@@ -142,8 +130,8 @@ mod test {
             Result::Ok(file)
         });
         let mut cache = FsCache::default();
-        cache.expect_get_or_fetch().returning(|file, fetch| {
-            Ok(fetch()?)
+        cache.expect_get_or_fetch().returning(|_file, fetch| {
+            fetch()
         });
         let (api_key, version) = get_setup_data(&client, &cache).expect("Expected success");
         assert_eq!(version, "20240101.01_v1.01.0");

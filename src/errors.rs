@@ -1,5 +1,3 @@
-// use std::error::Error as StdErr;
-use std::fmt::Display;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
