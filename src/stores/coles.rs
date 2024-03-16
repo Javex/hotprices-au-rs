@@ -129,11 +129,7 @@ mod test {
             let file = load_file("index/index_good.html");
             Result::Ok(file)
         });
-        let mut cache = FsCache::default();
-        cache.expect_get_or_fetch().returning(|_file, fetch| {
-            fetch()
-        });
-        let (api_key, version) = get_setup_data(&client, &cache).expect("Expected success");
+        let (api_key, version) = get_setup_data(&client).expect("Expected success");
         assert_eq!(version, "20240101.01_v1.01.0");
         assert_eq!(api_key, "testsubkey");
     }
