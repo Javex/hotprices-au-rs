@@ -6,8 +6,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     #[error("{0}")]
     Http(#[from] Box<ureq::Error>),
-    #[error("Invalid header errro")]
-    InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
     #[error("Io error")]
     IoError(#[from] std::io::Error),
     #[error("{0}")]
