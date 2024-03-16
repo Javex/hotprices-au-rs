@@ -14,4 +14,6 @@ pub enum Error {
     SerdeJson(#[from] serde_json::Error),
     #[error("Conversion error: {0}")]
     ProductConversion(String),
+    #[error("Ad result")]
+    AdResult,
 }

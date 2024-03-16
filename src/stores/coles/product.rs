@@ -46,7 +46,7 @@ pub struct SearchResult {
 }
 
 impl SearchResult {
-    fn from_json_value(value: serde_json::Value) -> Result<Option<SearchResult>> {
+    fn from_json_value(value: serde_json::Value) -> Result<SearchResult> {
         let obj = match &value {
             serde_json::Value::Object(map) => map,
             x => {
@@ -75,12 +75,12 @@ impl SearchResult {
         if IGNORED_RESULT_TYPES.contains(&result_type.as_str())
             && obj.get("adId").is_some_and(|x| !x.is_null())
         {
-            return Ok(None);
+            return Err(Error::AdResult);
         }
 
         let search_result: SearchResult = serde_json::from_value(value)?;
 
-        Ok(Some(search_result))
+        Ok(search_result)
     }
 }
 
@@ -266,7 +266,6 @@ fn load_legacy_search_result(products: Vec<serde_json::Value>) -> LegacyData {
                 Ok(v) => Either::Left(v),
                 Err(v) => Either::Right(v),
             });
-    let success = success.into_iter().flatten().collect();
     LegacyData { success, failure }
 }
 
@@ -281,8 +280,7 @@ mod test {
         let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
 
         let product = SearchResult::from_json_value(json_data)
-            .expect("Returned error instead of result")
-            .expect("Returned None instead of Some");
+            .expect("Returned error instead of result");
         assert_eq!(product.id, 42);
         assert_eq!(product.name, "Product name");
         assert_eq!(product.brand, "Brand name");
@@ -299,17 +297,16 @@ mod test {
         let file = load_file("search_results/ad.json");
         let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
 
-        let ad =
-            SearchResult::from_json_value(json_data).expect("Returned error instead of result");
-        assert!(ad.is_none());
+        let ad = SearchResult::from_json_value(json_data);
+        let err = ad.expect_err("Search result should contain ad and thus return error");
+        assert!(matches!(err, Error::AdResult));
     }
 
     fn get_product_result(filename: &str) -> Result<Product> {
         let file = load_file(filename);
         let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
         let product = SearchResult::from_json_value(json_data)
-            .expect("Returned error instead of result")
-            .expect("Returned None instead of Some");
+            .expect("Returned error instead of result");
         product.try_into()
     }
 
