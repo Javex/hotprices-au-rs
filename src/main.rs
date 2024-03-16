@@ -1,8 +1,9 @@
+use flate2::bufread::GzDecoder as BufGzDecoder;
 use flate2::read::GzDecoder;
 use hotprices_au_rs::cache::FsCache;
 use hotprices_au_rs::stores::coles::product::load_from_legacy;
 use hotprices_au_rs::stores::coles::fetch;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
 
@@ -26,7 +27,7 @@ fn load_legacy_products() {
     let file = "/home/flozza/src/hotprices-au/output/coles/2024-03-08.json.gz";
     let file = PathBuf::from(file);
     let file = File::open(file).unwrap();
-    let file = BufReader::new(file);
     let file = GzDecoder::new(file);
+    let file = BufReader::new(file);
     load_from_legacy(file).unwrap();
 }

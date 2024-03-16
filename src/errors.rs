@@ -20,8 +20,8 @@ pub enum Error {
     Message(String),
     #[error("Serde error: {0}")]
     SerdeJson(#[from] serde_json::Error),
-    #[error("Conversion error")]
-    ProductConversion,
+    #[error("Conversion error: {0}")]
+    ProductConversion(String),
 }
 
 impl From<reqwest::Error> for Error {

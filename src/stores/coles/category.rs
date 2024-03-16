@@ -62,7 +62,7 @@ impl<'a> Iterator for Category<'a> {
     type Item = Result<serde_json::Value>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.buf.len() == 0 && !self.finished {
+        if self.buf.is_empty() && !self.finished {
             let search_results = match self.get_category(self.page) {
                 Ok(v) => v,
                 Err(e) => return Some(Err(e)),

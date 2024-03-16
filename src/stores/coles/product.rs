@@ -1,5 +1,7 @@
 use crate::errors::{Error, Result};
 use crate::product::{PriceHistory, Product, Unit};
+use std::fmt::Display;
+use std::result::Result as StdResult;
 
 use itertools::{Either, Itertools};
 use lazy_static::lazy_static;
@@ -90,25 +92,40 @@ impl SearchResult {
 
 fn get_quantity_and_unit(item: &SearchResult) -> Result<(f64, Unit)> {
     let size = &item.size;
+    if size.is_empty() {
+        return Err(Error::ProductConversion(String::from("empty field size")));
+    }
     let (parsed_quantity, unit) = parse_str_unit(size)?;
     Ok((parsed_quantity, unit))
 }
 
 fn parse_str_unit(size: &str) -> Result<(f64, Unit)> {
     let size = size.to_lowercase();
-    let re = UNIT_REGEX.get(0).ok_or(Error::ProductConversion)?;
-    let captures = re.captures(&size).ok_or(Error::ProductConversion)?;
+    let re = UNIT_REGEX.first().ok_or(Error::ProductConversion(format!(
+        "missing regex for {}",
+        size
+    )))?;
+    let captures = re.captures(&size).ok_or(Error::ProductConversion(format!(
+        "regex didn't match for {}",
+        size
+    )))?;
 
     let quantity: f64 = captures
         .name("quantity")
-        .ok_or(Error::ProductConversion)?
+        .ok_or(Error::ProductConversion(format!(
+            "missing field quantity in {}",
+            size
+        )))?
         .as_str()
         .parse()
-        .map_err(|_e| Error::ProductConversion)?;
+        .map_err(|e| Error::ProductConversion(format!("can't parse quantity as f64: {}", e)))?;
 
     let unit = captures
         .name("unit")
-        .ok_or(Error::ProductConversion)?
+        .ok_or(Error::ProductConversion(format!(
+            "missing field unit for {}",
+            size
+        )))?
         .as_str();
     let (factor, unit) = normalise_unit(unit)?;
     let quantity = quantity * factor;
@@ -135,7 +152,7 @@ fn normalise_unit(unit: &str) -> Result<(f64, Unit)> {
         "dozen" => (12.0, Unit::Each),
         x if EACH_WORDS.contains(&x) => (1.0, Unit::Each),
 
-        _ => return Err(Error::ProductConversion),
+        _ => return Err(Error::ProductConversion(format!("unknown unit: {}", unit))),
     };
     Ok((factor, unit))
 }
@@ -146,9 +163,11 @@ fn normalise_unit(unit: &str) -> Result<(f64, Unit)> {
 
 impl TryFrom<SearchResult> for Product {
     type Error = Error;
-    fn try_from(item: SearchResult) -> std::prelude::v1::Result<Self, Self::Error> {
-        let pricing = item.pricing.ok_or(Error::ProductConversion)?;
-        let mut name = item.name;
+    fn try_from(item: SearchResult) -> StdResult<Self, Self::Error> {
+        let pricing = item.pricing.as_ref().ok_or(Error::ProductConversion(
+            "missing field pricing".to_string(),
+        ))?;
+        let mut name = item.name.clone();
         if !item.brand.is_empty() {
             name = format!("{} {}", item.brand, name);
         }
@@ -158,14 +177,16 @@ impl TryFrom<SearchResult> for Product {
             price: pricing.now,
         }];
 
+        let (quantity, unit) = get_quantity_and_unit(&item)?;
+
         let product = Product {
             id: item.id,
             name,
             description: item.description,
             price_history,
             is_weighted: pricing.unit.is_weighted.unwrap_or(false),
-            unit: Unit::Grams,
-            quantity: pricing.unit.quantity,
+            unit,
+            quantity,
         };
         Ok(product)
     }
@@ -177,27 +198,48 @@ struct LegacyCategory {
     products: Vec<serde_json::Value>,
 }
 
-pub fn load_from_legacy(file: impl Read) -> Result<()> {
-    let json_data: Vec<LegacyCategory> = serde_json::from_reader(file)?;
-    let data: Vec<LegacyData> = json_data
-        .into_iter()
-        .map(|c| load_legacy_products(c.products))
-        .collect();
+struct ConversionMetrics {
+    success: usize,
+    fail_search_result: usize,
+    fail_product: usize,
+}
 
-    let mut all_legacy = LegacyData {
-        success: Vec::new(),
-        failure: Vec::new(),
-    };
-    for item in data.into_iter() {
-        all_legacy.success.extend(item.success);
-        all_legacy.failure.extend(item.failure);
+impl ConversionMetrics {
+    fn failure_rate(&self) -> f64 {
+        (self.fail_search_result + self.fail_product) as f64 / (self.success + self.fail_search_result + self.fail_product) as f64
     }
-    println!(
-        "Success: {}, Failure: {}",
-        all_legacy.success.len(),
-        all_legacy.failure.len(),
-    );
-    Ok(())
+}
+
+impl Display for ConversionMetrics {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Success: {}, Fail Search Result: {}, Fail Product: {}, Failure rate: {:.2}%",
+            self.success, self.fail_search_result, self.fail_product, self.failure_rate() * 100.0,
+        )
+    }
+}
+
+pub fn load_from_legacy(file: impl Read) -> Result<Vec<Product>> {
+    let all_legacy = LegacyData::from_reader(file)?;
+    let legacy_success = all_legacy.success.len();
+    let legacy_failure = all_legacy.failure.len();
+    let products: Vec<StdResult<Product, Error>> = all_legacy
+        .success
+        .into_iter()
+        .map(|s| s.try_into())
+        .collect();
+    let (success, failure): (Vec<_>, Vec<_>) = products.into_iter().partition_map(|v| match v {
+        Ok(v) => Either::Left(v),
+        Err(v) => Either::Right(v),
+    });
+    let metrics = ConversionMetrics {
+        success: legacy_success,
+        fail_search_result: legacy_failure,
+        fail_product: failure.len(),
+    };
+    eprintln!("{}", metrics);
+    Ok(success)
 }
 
 struct LegacyData {
@@ -205,7 +247,28 @@ struct LegacyData {
     failure: Vec<Error>,
 }
 
-fn load_legacy_products(products: Vec<serde_json::Value>) -> LegacyData {
+impl LegacyData {
+    fn from_reader(file: impl Read) -> Result<Self> {
+        let json_data: Vec<LegacyCategory> = serde_json::from_reader(file)?;
+        let data: Vec<Self> = json_data
+            .into_iter()
+            .map(|c| load_legacy_search_result(c.products))
+            .collect();
+
+        let mut all_legacy = Self {
+            success: Vec::new(),
+            failure: Vec::new(),
+        };
+        for item in data.into_iter() {
+            all_legacy.success.extend(item.success);
+            all_legacy.failure.extend(item.failure);
+        }
+
+        Ok(all_legacy)
+    }
+}
+
+fn load_legacy_search_result(products: Vec<serde_json::Value>) -> LegacyData {
     let (success, failure): (Vec<_>, Vec<_>) =
         products
             .into_iter()
