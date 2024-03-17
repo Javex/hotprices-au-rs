@@ -1,15 +1,10 @@
-use clap::{Args, Parser, Subcommand, ValueEnum};
-use flate2::read::GzDecoder;
-use hotprices_au_rs::cache::FsCache;
-use hotprices_au_rs::errors::Result;
-use hotprices_au_rs::storage::{compress, remove};
-use hotprices_au_rs::stores::coles::fetch;
-use hotprices_au_rs::stores::coles::product::load_from_legacy;
+use clap::{Parser, Subcommand};
+use hotprices_au_rs::analysis::do_analysis;
+use hotprices_au_rs::stores::Store;
+use hotprices_au_rs::sync::do_sync;
 use log::error;
-use std::io::BufReader;
 use std::path::PathBuf;
 use std::result::Result as StdResult;
-use std::{fmt::Display, fs::File};
 use time::{macros::format_description, Date, OffsetDateTime};
 
 fn configure_logging(cli: &Cli) {
@@ -28,7 +23,12 @@ fn main() {
     configure_logging(&cli);
 
     let result = match cli.command {
-        Commands::Sync(sync) => do_sync(sync, cli.output_dir),
+        Commands::Sync {
+            quick,
+            print_save_path,
+            skip_existing,
+            store,
+        } => do_sync(store, quick, print_save_path, skip_existing, cli.output_dir),
         Commands::Analysis {
             day,
             store,
@@ -41,36 +41,6 @@ fn main() {
     if let Err(error) = result {
         error!("Unexpected error from program: {}", error);
     }
-}
-
-fn do_sync(cmd: SyncCommand, output_dir: PathBuf) -> Result<()> {
-    let day = OffsetDateTime::now_utc().date().to_string();
-    let cache_path = output_dir.join(cmd.store.to_string()).join(day);
-    let cache: FsCache = FsCache::new(cache_path.clone());
-    fetch(&cache, cmd.quick)?;
-    compress(&cache_path)?;
-    remove(&cache_path)?;
-    Ok(())
-}
-
-fn do_analysis(
-    day: Date,
-    store: Store,
-    compress: bool,
-    history: bool,
-    output_dir: PathBuf,
-) -> Result<()> {
-    if history || compress {
-        panic!("not implemented");
-    }
-    let file = output_dir
-        .join(store.to_string())
-        .join(format!("{day}.json.gz"));
-    let file = File::open(file)?;
-    let file = GzDecoder::new(file);
-    let file = BufReader::new(file);
-    load_from_legacy(file)?;
-    Ok(())
 }
 
 #[derive(Parser)]
@@ -86,7 +56,15 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Sync(SyncCommand),
+    Sync {
+        #[arg(long, default_value_t = false)]
+        quick: bool,
+        #[arg(long, default_value_t = false)]
+        print_save_path: bool,
+        #[arg(long, default_value_t = false)]
+        skip_existing: bool,
+        store: Store,
+    },
     Analysis {
         #[arg(long, value_parser = date_from_str, default_value_t = OffsetDateTime::now_utc().date())]
         day: Date,
@@ -98,17 +76,6 @@ enum Commands {
     },
 }
 
-#[derive(Args)]
-struct SyncCommand {
-    #[arg(long, default_value_t = false)]
-    quick: bool,
-    #[arg(long, default_value_t = false)]
-    print_save_path: bool,
-    #[arg(long, default_value_t = false)]
-    skip_existing: bool,
-    store: Store,
-}
-
 fn date_from_str(s: &str) -> StdResult<Date, String> {
     let format = format_description!("[year]-[month]-[day]");
     match Date::parse(s, &format) {
@@ -117,19 +84,6 @@ fn date_from_str(s: &str) -> StdResult<Date, String> {
             "Error parsing date, use format year-month-day (e.g. 2023-12-31). The parser reported the following error: {}",
             error
         )),
-    }
-}
-
-#[derive(ValueEnum, Clone)]
-enum Store {
-    Coles,
-}
-
-impl Display for Store {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Coles => write!(f, "coles"),
-        }
     }
 }
 
