@@ -8,7 +8,10 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Deserialize;
 use std::io::Read;
+use tar::Archive;
 use time::OffsetDateTime;
+
+use super::category::SearchResults;
 
 const IGNORED_RESULT_TYPES: [&str; 2] = ["SINGLE_TILE", "CONTENT_ASSOCIATION"];
 
@@ -212,8 +215,7 @@ impl Display for ConversionMetrics {
     }
 }
 
-pub fn load_from_legacy(file: impl Read) -> Result<Vec<Product>> {
-    let all_legacy = LegacyData::from_reader(file)?;
+fn load_stats(all_legacy: SearchResultConversion) -> Vec<Product> {
     let legacy_success = all_legacy.success.len();
     let legacy_failure = all_legacy.failure.len();
     let products: Vec<StdResult<Product, Error>> = all_legacy
@@ -231,21 +233,69 @@ pub fn load_from_legacy(file: impl Read) -> Result<Vec<Product>> {
         fail_product: failure.len(),
     };
     eprintln!("{}", metrics);
+    success
+}
+
+pub fn load_from_legacy(file: impl Read) -> Result<Vec<Product>> {
+    let all_legacy = SearchResultConversion::from_legacy_reader(file)?;
+    let success = load_stats(all_legacy);
     Ok(success)
 }
 
-struct LegacyData {
+pub fn load_from_archive(archive: Archive<impl Read>) -> Result<Vec<Product>> {
+    let all_legacy = SearchResultConversion::from_archive(archive)?;
+    let success = load_stats(all_legacy);
+    // let legacy_success = all_legacy.success.len();
+    // let legacy_failure = all_legacy.failure.len();
+    // let products: Vec<StdResult<Product, Error>> = all_legacy
+    //     .success
+    //     .into_iter()
+    //     .map(|s| s.try_into())
+    //     .collect();
+    // let (success, failure): (Vec<_>, Vec<_>) = products.into_iter().partition_map(|v| match v {
+    //     Ok(v) => Either::Left(v),
+    //     Err(v) => Either::Right(v),
+    // });
+    // let metrics = ConversionMetrics {
+    //     success: legacy_success,
+    //     fail_search_result: legacy_failure,
+    //     fail_product: failure.len(),
+    // };
+    // eprintln!("{}", metrics);
+    Ok(success)
+}
+
+struct SearchResultConversion {
     success: Vec<SearchResult>,
     failure: Vec<Error>,
 }
 
-impl LegacyData {
-    fn from_reader(file: impl Read) -> Result<Self> {
+type ProductList = Vec<serde_json::Value>;
+
+impl SearchResultConversion {
+    fn from_legacy_reader(file: impl Read) -> Result<Self> {
         let json_data: Vec<LegacyCategory> = serde_json::from_reader(file)?;
-        let data: Vec<Self> = json_data
-            .into_iter()
-            .map(|c| load_legacy_search_result(c.products))
-            .collect();
+        let json_data: Vec<ProductList> = json_data.into_iter().map(|c| c.products).collect();
+        let all_legacy = Self::full_product_list(json_data);
+
+        Ok(all_legacy)
+    }
+
+    fn from_archive(mut archive: Archive<impl Read>) -> Result<Self> {
+        let json_data: Vec<ProductList> = archive
+            .entries()?
+            .filter_map_ok(|entry| match entry.size() {
+                0 => None,
+                _ => Some(SearchResults::from_reader(entry).map(|r| r.results)),
+            })
+            .flatten()
+            .collect::<Result<Vec<_>>>()?;
+        let conversion_result_all = Self::full_product_list(json_data);
+        Ok(conversion_result_all)
+    }
+
+    fn full_product_list(json_data: Vec<ProductList>) -> Self {
+        let data: Vec<Self> = json_data.into_iter().map(Self::from_json_vec).collect();
 
         let mut all_legacy = Self {
             success: Vec::new(),
@@ -255,20 +305,24 @@ impl LegacyData {
             all_legacy.success.extend(item.success);
             all_legacy.failure.extend(item.failure);
         }
-
-        Ok(all_legacy)
+        all_legacy
     }
-}
 
-fn load_legacy_search_result(products: Vec<serde_json::Value>) -> LegacyData {
-    let (success, failure): (Vec<_>, Vec<_>) =
-        products
+    fn from_json_vec(products: Vec<serde_json::Value>) -> Self {
+        let (success, failure): (Vec<_>, Vec<_>) =
+            products
+                .into_iter()
+                .partition_map(|v| match SearchResult::from_json_value(v) {
+                    Ok(v) => Either::Left(v),
+                    Err(v) => Either::Right(v),
+                });
+        // remove ad results, not "real" errors
+        let failure = failure
             .into_iter()
-            .partition_map(|v| match SearchResult::from_json_value(v) {
-                Ok(v) => Either::Left(v),
-                Err(v) => Either::Right(v),
-            });
-    LegacyData { success, failure }
+            .filter(|e| !matches!(e, Error::AdResult))
+            .collect();
+        SearchResultConversion { success, failure }
+    }
 }
 
 #[cfg(test)]

@@ -1,3 +1,5 @@
+use std::io::Read;
+
 #[double]
 use super::http::ColesHttpClient;
 #[double]
@@ -8,11 +10,18 @@ use mockall_double::double;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-struct SearchResults {
+pub struct SearchResults {
     #[serde(rename = "results")]
-    results: Vec<serde_json::Value>,
+    pub results: Vec<serde_json::Value>,
     #[serde(rename = "noOfResults")]
     no_of_results: i64,
+}
+
+impl SearchResults {
+    pub fn from_reader(reader: impl Read) -> Result<SearchResults> {
+        let json_data: CategoryJson = serde_json::from_reader(reader)?;
+        Ok(json_data.page_props.search_results)
+    }
 }
 
 #[derive(Deserialize)]
@@ -22,7 +31,7 @@ struct PageProps {
 }
 
 #[derive(Deserialize)]
-struct CategoryJson {
+pub struct CategoryJson {
     #[serde(rename = "pageProps")]
     page_props: PageProps,
 }
