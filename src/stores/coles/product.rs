@@ -46,7 +46,7 @@ pub struct SearchResult {
 }
 
 impl SearchResult {
-    fn from_json_value(value: serde_json::Value) -> Result<SearchResult> {
+    pub fn from_json_value(value: serde_json::Value) -> Result<SearchResult> {
         let obj = match &value {
             serde_json::Value::Object(map) => map,
             x => {

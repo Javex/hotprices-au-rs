@@ -4,13 +4,15 @@ mod http;
 
 #[double]
 use crate::cache::FsCache;
+use crate::errors::Error;
+use crate::{product::Product, stores::coles::product::SearchResult};
 #[double]
 use http::ColesHttpClient;
-use log;
+use log::{self, info};
 use mockall_double::double;
 use scraper::Selector;
 use serde::Deserialize;
-use std::error::Error;
+use std::error::Error as StdError;
 
 const SKIP_CATEGORIES: [&str; 2] = ["down-down", "back-to-school"];
 
@@ -59,9 +61,7 @@ fn get_cache_key(key: &str) -> String {
     format!("coles/{}", key)
 }
 
-fn get_setup_data(
-    client: &ColesHttpClient,
-) -> Result<(String, String), Box<dyn Error>> {
+fn get_setup_data(client: &ColesHttpClient) -> Result<(String, String), Box<dyn StdError>> {
     let resp = client.get_setup_data()?;
     let selector = Selector::parse("script#__NEXT_DATA__")?;
     let doc = scraper::Html::parse_document(&resp);
@@ -77,9 +77,7 @@ fn get_setup_data(
     Ok((api_key, version))
 }
 
-fn get_versioned_client(
-    client: &ColesHttpClient,
-) -> Result<ColesHttpClient, Box<dyn Error>> {
+fn get_versioned_client(client: &ColesHttpClient) -> Result<ColesHttpClient, Box<dyn StdError>> {
     let (api_key, version) = get_setup_data(client)?;
     let client = ColesHttpClient::new_with_setup(&api_key, version)?;
     Ok(client)
@@ -88,7 +86,7 @@ fn get_versioned_client(
 fn get_categories<'a>(
     cache: &'a FsCache,
     client: &'a ColesHttpClient,
-) -> Result<Vec<category::Category<'a>>, Box<dyn Error>> {
+) -> Result<Vec<category::Category<'a>>, Box<dyn StdError>> {
     let resp = client.get_categories()?;
     let categories: Categories = serde_json::from_str(&resp)?;
     let categories = categories.get_items(client, cache);
@@ -104,7 +102,31 @@ pub fn fetch(cache: &FsCache) {
     println!("{}", categories.len());
     for category in categories {
         for prod in category {
-            let _prod = prod.unwrap();
+            let prod = prod.unwrap();
+            let prod: SearchResult = match SearchResult::from_json_value(prod) {
+                Ok(product) => product,
+                Err(error) => {
+                    match error {
+                        // just skip ads silently
+                        Error::AdResult => continue,
+                        _ => {
+                            info!("Failed to convert json value to search result, skipping. Error was {}", error);
+                            continue;
+                        }
+                    }
+                }
+            };
+
+            let _prod: Product = match prod.try_into() {
+                Ok(product) => product,
+                Err(error) => {
+                    info!(
+                        "Failed to convert search result to product, skipping. Error was {}",
+                        error
+                    );
+                    continue;
+                }
+            };
         }
     }
 }
