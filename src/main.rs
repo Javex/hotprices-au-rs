@@ -118,7 +118,6 @@ fn date_from_str(s: &str) -> StdResult<Date, String> {
             error
         )),
     }
-    // Err("Not implemented".to_string())
 }
 
 #[derive(ValueEnum, Clone)]
