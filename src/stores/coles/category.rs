@@ -2,7 +2,6 @@ use std::io::Read;
 
 #[double]
 use super::http::ColesHttpClient;
-#[double]
 use crate::cache::FsCache;
 use crate::errors::Result;
 use log::debug;

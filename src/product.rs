@@ -6,14 +6,14 @@ use crate::errors::{Error, Result};
 
 #[derive(Debug)]
 pub struct Product {
-    id: i64,
-    name: String,
-    description: String,
-    price: f64,
-    price_history: Vec<PriceHistory>,
-    is_weighted: bool,
-    unit: Unit,
-    quantity: f64,
+    pub id: i64,
+    pub name: String,
+    pub description: String,
+    pub price: f64,
+    pub price_history: Vec<PriceHistory>,
+    pub is_weighted: bool,
+    pub unit: Unit,
+    pub quantity: f64,
 }
 
 impl Product {

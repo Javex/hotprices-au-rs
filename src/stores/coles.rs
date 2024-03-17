@@ -2,7 +2,6 @@ pub mod category;
 mod http;
 pub mod product;
 
-#[double]
 use crate::cache::FsCache;
 use crate::errors::{Error, Result};
 use crate::{product::Product, stores::coles::product::SearchResult};
