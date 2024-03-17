@@ -62,7 +62,7 @@ impl ColesHttpClient {
     }
 
     fn get(&self, url: &str) -> Result<String> {
-        log::debug!("Loading url '{url}'");
+        log::info!("Loading url '{url}'");
         for retry_count in 0..self.retry_policy.total {
             let request = self
                 .client

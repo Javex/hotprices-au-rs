@@ -94,7 +94,7 @@ fn get_categories<'a>(
     Ok(categories)
 }
 
-pub fn fetch(cache: &FsCache) {
+pub fn fetch(cache: &FsCache, quick: bool) {
     log::info!("Starting fetch for coles");
     let client = ColesHttpClient::new().unwrap();
     let client = get_versioned_client(&client).unwrap();
@@ -127,6 +127,9 @@ pub fn fetch(cache: &FsCache) {
                     continue;
                 }
             };
+        }
+        if quick {
+            break;
         }
     }
 }
