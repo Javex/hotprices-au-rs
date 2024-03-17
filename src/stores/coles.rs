@@ -6,6 +6,8 @@ pub mod product;
 use crate::cache::FsCache;
 use crate::errors::Error;
 use crate::{product::Product, stores::coles::product::SearchResult};
+use flate2::write::GzEncoder;
+use flate2::Compression;
 #[double]
 use http::ColesHttpClient;
 use log::{self, info};
@@ -13,6 +15,8 @@ use mockall_double::double;
 use scraper::Selector;
 use serde::Deserialize;
 use std::error::Error as StdError;
+use std::fs::File;
+use std::path::PathBuf;
 
 const SKIP_CATEGORIES: [&str; 2] = ["down-down", "back-to-school"];
 
@@ -55,10 +59,6 @@ impl Categories {
 struct CategoryFields {
     #[serde(rename = "seoToken")]
     seo_token: String,
-}
-
-fn get_cache_key(key: &str) -> String {
-    format!("coles/{}", key)
 }
 
 fn get_setup_data(client: &ColesHttpClient) -> Result<(String, String), Box<dyn StdError>> {
@@ -132,6 +132,18 @@ pub fn fetch(cache: &FsCache, quick: bool) {
             break;
         }
     }
+}
+
+pub fn compress(source: &PathBuf) {
+    let mut file = source.clone();
+    file.set_extension("tar.gz");
+    info!("Saving results as {}", file.to_str().unwrap());
+    let file = File::create(file).unwrap();
+    let file = GzEncoder::new(file, Compression::default());
+    let mut archive = tar::Builder::new(file);
+    // saves everything relative to source
+    archive.append_dir_all("", source).unwrap();
+    archive.finish().unwrap();
 }
 
 #[cfg(test)]

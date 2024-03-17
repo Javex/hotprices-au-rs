@@ -3,7 +3,6 @@ use super::http::ColesHttpClient;
 #[double]
 use crate::cache::FsCache;
 use crate::errors::Result;
-use crate::stores::coles::get_cache_key;
 use log::debug;
 use mockall_double::double;
 use serde::Deserialize;
@@ -51,7 +50,7 @@ impl<'a> Category<'a> {
         }
     }
     fn get_category(&self, page: i32) -> Result<SearchResults> {
-        let path = get_cache_key(&format!("categories/{}/page_{}.json", self.slug, page));
+        let path = format!("categories/{}/page_{}.json", self.slug, page);
         let fetch = &|| self.client.get_category(&self.slug, page);
         let resp = self.cache.get_or_fetch(path, fetch)?;
         let json_data: CategoryJson = serde_json::from_str(&resp)?;
