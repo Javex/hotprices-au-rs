@@ -16,8 +16,7 @@ use super::category::SearchResults;
 const IGNORED_RESULT_TYPES: [&str; 2] = ["SINGLE_TILE", "CONTENT_ASSOCIATION"];
 
 lazy_static! {
-    static ref UNIT_REGEX: Vec<Regex> =
-        vec![Regex::new(r#"(?P<quantity>[0-9]+) ?(?P<unit>[a-z]+)"#).unwrap(),];
+    static ref UNIT_REGEX: Regex = Regex::new(r#"(?P<quantity>[0-9]+) ?(?P<unit>[a-z]+)"#).unwrap();
     static ref EACH_WORDS: Vec<&'static str> = vec![
         "ea", "each", "pk", "pack", "bunch", "sheets", "sachets", "capsules", "ss", "set", "pair",
         "pairs", "piece", "tablets", "rolls",
@@ -96,14 +95,12 @@ fn get_quantity_and_unit(item: &SearchResult) -> Result<(f64, Unit)> {
 
 fn parse_str_unit(size: &str) -> Result<(f64, Unit)> {
     let size = size.to_lowercase();
-    let re = UNIT_REGEX.first().ok_or(Error::ProductConversion(format!(
-        "missing regex for {}",
-        size
-    )))?;
-    let captures = re.captures(&size).ok_or(Error::ProductConversion(format!(
-        "regex didn't match for {}",
-        size
-    )))?;
+    let captures = UNIT_REGEX
+        .captures(&size)
+        .ok_or(Error::ProductConversion(format!(
+            "regex didn't match for {}",
+            size
+        )))?;
 
     let quantity: f64 = captures
         .name("quantity")
