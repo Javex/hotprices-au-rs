@@ -242,23 +242,6 @@ pub fn load_from_legacy(file: impl Read) -> Result<Vec<Product>> {
 pub fn load_from_archive(archive: Archive<impl Read>) -> Result<Vec<Product>> {
     let all_legacy = SearchResultConversion::from_archive(archive)?;
     let success = load_stats(all_legacy);
-    // let legacy_success = all_legacy.success.len();
-    // let legacy_failure = all_legacy.failure.len();
-    // let products: Vec<StdResult<Product, Error>> = all_legacy
-    //     .success
-    //     .into_iter()
-    //     .map(|s| s.try_into())
-    //     .collect();
-    // let (success, failure): (Vec<_>, Vec<_>) = products.into_iter().partition_map(|v| match v {
-    //     Ok(v) => Either::Left(v),
-    //     Err(v) => Either::Right(v),
-    // });
-    // let metrics = ConversionMetrics {
-    //     success: legacy_success,
-    //     fail_search_result: legacy_failure,
-    //     fail_product: failure.len(),
-    // };
-    // eprintln!("{}", metrics);
     Ok(success)
 }
 
