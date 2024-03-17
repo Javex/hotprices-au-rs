@@ -1,11 +1,14 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use flate2::read::GzDecoder;
 use hotprices_au_rs::cache::FsCache;
+use hotprices_au_rs::errors::Result;
 use hotprices_au_rs::storage::{compress, remove};
 use hotprices_au_rs::stores::coles::fetch;
 use hotprices_au_rs::stores::coles::product::load_from_legacy;
+use log::error;
 use std::io::BufReader;
 use std::path::PathBuf;
+use std::result::Result as StdResult;
 use std::{fmt::Display, fs::File};
 use time::{macros::format_description, Date, OffsetDateTime};
 
@@ -24,7 +27,7 @@ fn main() {
     let cli = Cli::parse();
     configure_logging(&cli);
 
-    match cli.command {
+    let result = match cli.command {
         Commands::Sync(sync) => do_sync(sync, cli.output_dir),
         Commands::Analysis {
             day,
@@ -32,29 +35,42 @@ fn main() {
             compress,
             history,
         } => do_analysis(day, store, compress, history, cli.output_dir),
+    };
+
+    // Print error message if result contained an error
+    if let Err(error) = result {
+        error!("Unexpected error from program: {}", error);
     }
 }
 
-fn do_sync(cmd: SyncCommand, output_dir: PathBuf) {
+fn do_sync(cmd: SyncCommand, output_dir: PathBuf) -> Result<()> {
     let day = OffsetDateTime::now_utc().date().to_string();
     let cache_path = output_dir.join(cmd.store.to_string()).join(day);
     let cache: FsCache = FsCache::new(cache_path.clone());
-    fetch(&cache, cmd.quick);
-    compress(&cache_path);
-    remove(&cache_path).unwrap();
+    fetch(&cache, cmd.quick)?;
+    compress(&cache_path)?;
+    remove(&cache_path)?;
+    Ok(())
 }
 
-fn do_analysis(day: Date, store: Store, compress: bool, history: bool, output_dir: PathBuf) {
+fn do_analysis(
+    day: Date,
+    store: Store,
+    compress: bool,
+    history: bool,
+    output_dir: PathBuf,
+) -> Result<()> {
     if history || compress {
         panic!("not implemented");
     }
     let file = output_dir
         .join(store.to_string())
         .join(format!("{day}.json.gz"));
-    let file = File::open(file).unwrap();
+    let file = File::open(file)?;
     let file = GzDecoder::new(file);
     let file = BufReader::new(file);
-    load_from_legacy(file).unwrap();
+    load_from_legacy(file)?;
+    Ok(())
 }
 
 #[derive(Parser)]
@@ -93,7 +109,7 @@ struct SyncCommand {
     store: Store,
 }
 
-fn date_from_str(s: &str) -> Result<Date, String> {
+fn date_from_str(s: &str) -> StdResult<Date, String> {
     let format = format_description!("[year]-[month]-[day]");
     match Date::parse(s, &format) {
         Ok(date) => Ok(date),

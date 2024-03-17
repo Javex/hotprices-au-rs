@@ -16,4 +16,6 @@ pub enum Error {
     ProductConversion(String),
     #[error("Ad result")]
     AdResult,
+    #[error("Selector error: {0}")]
+    SelectorError(#[from] scraper::error::SelectorErrorKind<'static>),
 }

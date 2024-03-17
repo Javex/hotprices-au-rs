@@ -4,7 +4,7 @@ pub mod product;
 
 #[double]
 use crate::cache::FsCache;
-use crate::errors::Error;
+use crate::errors::{Error, Result};
 use crate::{product::Product, stores::coles::product::SearchResult};
 #[double]
 use http::ColesHttpClient;
@@ -12,7 +12,6 @@ use log::info;
 use mockall_double::double;
 use scraper::Selector;
 use serde::Deserialize;
-use std::error::Error as StdError;
 
 const SKIP_CATEGORIES: [&str; 2] = ["down-down", "back-to-school"];
 
@@ -57,13 +56,17 @@ struct CategoryFields {
     seo_token: String,
 }
 
-fn get_setup_data(client: &ColesHttpClient) -> Result<(String, String), Box<dyn StdError>> {
+fn get_setup_data(client: &ColesHttpClient) -> Result<(String, String)> {
     let resp = client.get_setup_data()?;
     let selector = Selector::parse("script#__NEXT_DATA__")?;
     let doc = scraper::Html::parse_document(&resp);
     let next_data_script = match doc.select(&selector).next() {
         Some(x) => x,
-        None => return Err("couldn't find __NEXT_DATA__ script in HTML".into()),
+        None => {
+            return Err(Error::Message(
+                "couldn't find __NEXT_DATA__ script in HTML".to_string(),
+            ))
+        }
     };
     let next_data_script = next_data_script.inner_html();
     let next_data: NextData = serde_json::from_str(&next_data_script)?;
@@ -73,7 +76,7 @@ fn get_setup_data(client: &ColesHttpClient) -> Result<(String, String), Box<dyn 
     Ok((api_key, version))
 }
 
-fn get_versioned_client(client: &ColesHttpClient) -> Result<ColesHttpClient, Box<dyn StdError>> {
+fn get_versioned_client(client: &ColesHttpClient) -> Result<ColesHttpClient> {
     let (api_key, version) = get_setup_data(client)?;
     let client = ColesHttpClient::new_with_setup(&api_key, version)?;
     Ok(client)
@@ -82,7 +85,7 @@ fn get_versioned_client(client: &ColesHttpClient) -> Result<ColesHttpClient, Box
 fn get_categories<'a>(
     cache: &'a FsCache,
     client: &'a ColesHttpClient,
-) -> Result<Vec<category::Category<'a>>, Box<dyn StdError>> {
+) -> Result<Vec<category::Category<'a>>> {
     let resp = client.get_categories()?;
     let categories: Categories = serde_json::from_str(&resp)?;
     let categories = categories.get_items(client, cache);
@@ -90,11 +93,11 @@ fn get_categories<'a>(
     Ok(categories)
 }
 
-pub fn fetch(cache: &FsCache, quick: bool) {
+pub fn fetch(cache: &FsCache, quick: bool) -> Result<()> {
     log::info!("Starting fetch for coles");
-    let client = ColesHttpClient::new().unwrap();
-    let client = get_versioned_client(&client).unwrap();
-    let categories = get_categories(cache, &client).unwrap();
+    let client = ColesHttpClient::new()?;
+    let client = get_versioned_client(&client)?;
+    let categories = get_categories(cache, &client)?;
     println!("{}", categories.len());
     for category in categories {
         for prod in category {
@@ -128,6 +131,7 @@ pub fn fetch(cache: &FsCache, quick: bool) {
             break;
         }
     }
+    Ok(())
 }
 
 #[cfg(test)]
