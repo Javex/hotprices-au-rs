@@ -1,6 +1,5 @@
 use time::Date;
 
-
 #[derive(Debug)]
 pub struct Product {
     pub id: i64,
@@ -27,4 +26,3 @@ pub enum Unit {
     Millilitre,
     Centimetre,
 }
-

@@ -1,6 +1,6 @@
 pub mod category;
-pub mod product;
 mod http;
+pub mod product;
 
 #[double]
 use crate::cache::FsCache;

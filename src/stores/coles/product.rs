@@ -13,13 +13,11 @@ use time::OffsetDateTime;
 const IGNORED_RESULT_TYPES: [&str; 2] = ["SINGLE_TILE", "CONTENT_ASSOCIATION"];
 
 lazy_static! {
-    static ref UNIT_REGEX: Vec<Regex> = vec![Regex::new(
-        r#"(?P<quantity>[0-9]+) ?(?P<unit>[a-z]+)"#
-    )
-    .unwrap(),];
-
+    static ref UNIT_REGEX: Vec<Regex> =
+        vec![Regex::new(r#"(?P<quantity>[0-9]+) ?(?P<unit>[a-z]+)"#).unwrap(),];
     static ref EACH_WORDS: Vec<&'static str> = vec![
-    "ea", "each", "pk", "pack", "bunch", "sheets", "sachets", "capsules", "ss", "set", "pair", "pairs", "piece", "tablets", "rolls",
+        "ea", "each", "pk", "pack", "bunch", "sheets", "sachets", "capsules", "ss", "set", "pair",
+        "pairs", "piece", "tablets", "rolls",
     ];
 }
 
@@ -196,7 +194,8 @@ struct ConversionMetrics {
 
 impl ConversionMetrics {
     fn failure_rate(&self) -> f64 {
-        (self.fail_search_result + self.fail_product) as f64 / (self.success + self.fail_search_result + self.fail_product) as f64
+        (self.fail_search_result + self.fail_product) as f64
+            / (self.success + self.fail_search_result + self.fail_product) as f64
     }
 }
 
@@ -205,7 +204,10 @@ impl Display for ConversionMetrics {
         write!(
             f,
             "Success: {}, Fail Search Result: {}, Fail Product: {}, Failure rate: {:.2}%",
-            self.success, self.fail_search_result, self.fail_product, self.failure_rate() * 100.0,
+            self.success,
+            self.fail_search_result,
+            self.fail_product,
+            self.failure_rate() * 100.0,
         )
     }
 }
@@ -279,8 +281,8 @@ mod test {
         let file = load_file("search_results/product.json");
         let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
 
-        let product = SearchResult::from_json_value(json_data)
-            .expect("Returned error instead of result");
+        let product =
+            SearchResult::from_json_value(json_data).expect("Returned error instead of result");
         assert_eq!(product.id, 42);
         assert_eq!(product.name, "Product name");
         assert_eq!(product.brand, "Brand name");
@@ -305,8 +307,8 @@ mod test {
     fn get_product_result(filename: &str) -> Result<Product> {
         let file = load_file(filename);
         let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
-        let product = SearchResult::from_json_value(json_data)
-            .expect("Returned error instead of result");
+        let product =
+            SearchResult::from_json_value(json_data).expect("Returned error instead of result");
         product.try_into()
     }
 
