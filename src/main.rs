@@ -1,8 +1,9 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use flate2::read::GzDecoder;
 use hotprices_au_rs::cache::FsCache;
+use hotprices_au_rs::storage::{compress, remove};
+use hotprices_au_rs::stores::coles::fetch;
 use hotprices_au_rs::stores::coles::product::load_from_legacy;
-use hotprices_au_rs::stores::coles::{compress, fetch};
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::{fmt::Display, fs::File};
@@ -40,6 +41,7 @@ fn do_sync(cmd: SyncCommand, output_dir: PathBuf) {
     let cache: FsCache = FsCache::new(cache_path.clone());
     fetch(&cache, cmd.quick);
     compress(&cache_path);
+    remove(&cache_path).unwrap();
 }
 
 fn do_analysis(day: Date, store: Store, compress: bool, history: bool, output_dir: PathBuf) {
