@@ -1,5 +1,7 @@
 use crate::errors::{Error, Result};
-use crate::product::{parse_str_unit, Product, Unit};
+use crate::product::Product;
+use crate::stores::Store;
+use crate::unit::{parse_str_unit, Unit};
 use std::fmt::Display;
 use std::result::Result as StdResult;
 
@@ -105,6 +107,7 @@ impl TryFrom<SearchResult> for Product {
             pricing.unit.is_weighted,
             unit,
             quantity,
+            Store::Coles,
         );
         Ok(product)
     }

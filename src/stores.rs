@@ -1,9 +1,11 @@
 use clap::ValueEnum;
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 pub mod coles;
 
-#[derive(ValueEnum, Clone)]
+#[derive(ValueEnum, Clone, Debug, Serialize, Deserialize)]
 pub enum Store {
+    #[serde(rename = "coles")]
     Coles,
 }
 
