@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 pub mod coles;
 
-#[derive(ValueEnum, Clone, Debug, Serialize, Deserialize)]
+#[derive(ValueEnum, Clone, Debug, Serialize, Deserialize, Eq, Hash, PartialEq, Copy)]
 pub enum Store {
     #[serde(rename = "coles")]
     Coles,
