@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
-    io::{BufReader, Write},
+    io::{BufReader, BufWriter, Write},
     path::Path,
 };
 
@@ -69,6 +69,7 @@ fn save_result(products: &Vec<Product>, output_dir: &Path) -> Result<()> {
     let file = output_dir.join("latest-canonical.json.gz");
     let file = File::create(file)?;
     let file = GzEncoder::new(file, Compression::default());
+    let file = BufWriter::new(file);
     serde_json::to_writer(file, products)?;
     Ok(())
 }
@@ -88,6 +89,7 @@ fn save_to_site(products: &[Product], data_dir: &Path, compress: bool) -> Result
             true => Box::new(GzEncoder::new(file, Compression::default())),
             false => Box::new(file),
         };
+        let file = BufWriter::new(file);
         let store_products: Vec<&Product> = products.iter().filter(|p| p.store == store).collect();
         serde_json::to_writer(file, &store_products)?;
     }
