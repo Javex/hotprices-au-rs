@@ -1,67 +1,91 @@
 use std::{
     collections::{HashMap, HashSet},
-    fs::File,
+    fs::{create_dir_all, File},
     io::{BufReader, BufWriter, Write},
     path::Path,
 };
 
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
-use log::info;
+use log::{debug, info};
 use strum::IntoEnumIterator;
 use tar::Archive;
 use time::Date;
 
 use crate::{
     errors::Result,
-    product::Product,
+    product::{merge_price_history, Product},
     stores::{coles, Store},
 };
 
 pub fn do_analysis(
     day: Date,
-    store: Store,
+    store: Option<Store>,
     compress: bool,
     history: bool,
     output_dir: &Path,
     data_dir: &Path,
 ) -> Result<()> {
     if history {
-        panic!("not implemented");
+        panic!("history backfill");
     }
-    let products = load_products(output_dir, day, store)?;
-    let products = deduplicate_products(products);
+    let previous_products = load_history(output_dir)?;
+    let new_products = load_daily_snapshot(output_dir, day, store)?;
+    let new_products = deduplicate_products(new_products);
+    let products = merge_price_history(previous_products, new_products, store)?;
     save_result(&products, output_dir)?;
     save_to_site(&products, data_dir, compress)?;
     Ok(())
 }
 
-fn load_products(output_dir: &Path, day: Date, store: Store) -> Result<Vec<Product>> {
-    let file = output_dir
-        .join(store.to_string())
-        .join(format!("{day}.json.gz"));
-    let products = if file.exists() {
-        // legacy file
-        let file = File::open(file)?;
-        let file = GzDecoder::new(file);
-        let file = BufReader::new(file);
-        match store {
-            Store::Coles => coles::product::load_from_legacy(file)?,
-            Store::Woolies => todo!("not implemented"),
+fn load_history(output_dir: &Path) -> Result<Vec<Product>> {
+    let file = output_dir.join("latest-canonical.json.gz");
+    let file = File::open(file)?;
+    let file = GzDecoder::new(file);
+    let file = BufReader::new(file);
+    let products: Vec<Product> = serde_json::from_reader(file)?;
+    debug!("Loaded {} products from history", products.len());
+    Ok(products)
+}
+
+fn load_daily_snapshot(
+    output_dir: &Path,
+    day: Date,
+    store_filter: Option<Store>,
+) -> Result<Vec<Product>> {
+    let mut products = Vec::new();
+    for store in Store::iter() {
+        if store_filter.is_some_and(|s| s != store) {
+            continue;
         }
-    } else {
-        // non legacy format
         let file = output_dir
             .join(store.to_string())
-            .join(format!("{day}.tar.gz"));
-        let file = File::open(file)?;
-        let file = GzDecoder::new(file);
-        let file = BufReader::new(file);
-        let file = Archive::new(file);
-        match store {
-            Store::Coles => coles::product::load_from_archive(file)?,
-            Store::Woolies => todo!("not implemented"),
-        }
-    };
+            .join(format!("{day}.json.gz"));
+        let store_products = if file.exists() {
+            // legacy file
+            let file = File::open(file)?;
+            let file = GzDecoder::new(file);
+            let file = BufReader::new(file);
+            match store {
+                Store::Coles => coles::product::load_from_legacy(file)?,
+                Store::Woolies => todo!("load_from_legacy for woolies"),
+            }
+        } else {
+            // non legacy format
+            let file = output_dir
+                .join(store.to_string())
+                .join(format!("{day}.tar.gz"));
+            let file = File::open(file)?;
+            let file = GzDecoder::new(file);
+            let file = BufReader::new(file);
+            let file = Archive::new(file);
+            match store {
+                Store::Coles => coles::product::load_from_archive(file)?,
+                Store::Woolies => todo!("load_from_archive"),
+            }
+        };
+        products.extend(store_products);
+    }
+    debug!("Loaded {} products for date {:?}", products.len(), day);
     Ok(products)
 }
 
@@ -75,6 +99,9 @@ fn save_result(products: &Vec<Product>, output_dir: &Path) -> Result<()> {
 }
 
 fn save_to_site(products: &[Product], data_dir: &Path, compress: bool) -> Result<()> {
+    // create the data_dir if it doesn't exist yet
+    create_dir_all(data_dir)?;
+
     let filename_suffix = if compress { ".gz" } else { "" };
 
     for store in Store::iter() {

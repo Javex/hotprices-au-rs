@@ -49,7 +49,7 @@ fn main() {
 struct Cli {
     #[arg(long, default_value_t = false)]
     debug: bool,
-    #[arg(long)]
+    #[arg(long, default_value = "output")]
     output_dir: PathBuf,
     #[command(subcommand)]
     command: Commands,
@@ -69,12 +69,13 @@ enum Commands {
     Analysis {
         #[arg(long, value_parser = date_from_str, default_value_t = OffsetDateTime::now_utc().date())]
         day: Date,
-        store: Store,
+        #[arg(long)]
+        store: Option<Store>,
         #[arg(long, default_value_t = false)]
         compress: bool,
         #[arg(long, default_value_t = false)]
         history: bool,
-        #[arg(long)]
+        #[arg(long, default_value = "static/data")]
         data_dir: PathBuf,
     },
 }
