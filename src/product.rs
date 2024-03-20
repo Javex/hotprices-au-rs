@@ -127,13 +127,13 @@ pub fn merge_price_history(
     mut new_items: Vec<Product>,
     store_filter: Option<Store>,
 ) -> Result<Vec<Product>> {
-    if store_filter.is_some() {
-        todo!("Not implemented");
-    }
-
     let mut old_map = HashMap::with_capacity(old_items.len());
     for item in old_items.into_iter() {
-        old_map.insert((item.store, item.id), item);
+        if store_filter.is_some_and(|s| s != item.store) {
+            new_items.push(item);
+        } else {
+            old_map.insert((item.store, item.id), item);
+        }
     }
 
     let mut store_price_count: HashMap<&Store, u64> = HashMap::new();
@@ -367,6 +367,37 @@ mod test {
             panic!("unexpected result size")
         };
         assert_eq!(merged.id, 2);
+    }
+
+    #[test]
+    fn merge_with_store_filter() {
+        let old = vec![
+            Product {
+                store: Store::Coles,
+                ..Default::default()
+            },
+            Product {
+                store: Store::Woolies,
+                ..Default::default()
+            },
+        ];
+
+        let new = vec![Product {
+            store: Store::Coles,
+            ..Default::default()
+        }];
+
+        let merged = merge_price_history(old, new, Some(Store::Coles)).unwrap();
+        assert_eq!(
+            merged.len(),
+            2,
+            "Should return two products for a store each"
+        );
+        let merged_stores: Vec<Store> = merged.into_iter().map(|p| p.store).collect();
+        assert!(
+            merged_stores.contains(&Store::Woolies),
+            "Should retain Woolies items when only merging Coles store"
+        );
     }
 
     #[test]
