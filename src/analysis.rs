@@ -14,10 +14,7 @@ use time::Date;
 use crate::{
     errors::Result,
     product::Product,
-    stores::{
-        coles::product::{load_from_archive, load_from_legacy},
-        Store,
-    },
+    stores::{coles, Store},
 };
 
 pub fn do_analysis(
@@ -47,7 +44,10 @@ fn load_products(output_dir: &Path, day: Date, store: Store) -> Result<Vec<Produ
         let file = File::open(file)?;
         let file = GzDecoder::new(file);
         let file = BufReader::new(file);
-        load_from_legacy(file)?
+        match store {
+            Store::Coles => coles::product::load_from_legacy(file)?,
+            Store::Woolies => todo!("not implemented"),
+        }
     } else {
         // non legacy format
         let file = output_dir
@@ -57,7 +57,10 @@ fn load_products(output_dir: &Path, day: Date, store: Store) -> Result<Vec<Produ
         let file = GzDecoder::new(file);
         let file = BufReader::new(file);
         let file = Archive::new(file);
-        load_from_archive(file)?
+        match store {
+            Store::Coles => coles::product::load_from_archive(file)?,
+            Store::Woolies => todo!("not implemented"),
+        }
     };
     Ok(products)
 }
