@@ -75,19 +75,17 @@ fn save_result(products: &Vec<Product>, output_dir: &Path) -> Result<()> {
 }
 
 fn save_to_site(products: &[Product], data_dir: &Path, compress: bool) -> Result<()> {
-    let filename_suffix = match compress {
-        true => ".gz",
-        false => "",
-    };
+    let filename_suffix = if compress { ".gz" } else { "" };
 
     for store in Store::iter() {
         let file = data_dir.join(format!(
             "latest-canonical.{store}.compressed.json{filename_suffix}"
         ));
         let file = File::create(file)?;
-        let file: Box<dyn Write> = match compress {
-            true => Box::new(GzEncoder::new(file, Compression::default())),
-            false => Box::new(file),
+        let file: Box<dyn Write> = if compress {
+            Box::new(GzEncoder::new(file, Compression::default()))
+        } else {
+            Box::new(file)
         };
         let file = BufWriter::new(file);
         let store_products: Vec<&Product> = products.iter().filter(|p| p.store == store).collect();
