@@ -34,7 +34,8 @@ fn main() {
             store,
             compress,
             history,
-        } => do_analysis(day, store, compress, history, cli.output_dir),
+            data_dir,
+        } => do_analysis(day, store, compress, history, &cli.output_dir, &data_dir),
     };
 
     // Print error message if result contained an error
@@ -73,6 +74,8 @@ enum Commands {
         compress: bool,
         #[arg(long, default_value_t = false)]
         history: bool,
+        #[arg(long)]
+        data_dir: PathBuf,
     },
 }
 
