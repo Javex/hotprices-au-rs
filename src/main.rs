@@ -10,9 +10,10 @@ use time::{macros::format_description, Date, OffsetDateTime};
 fn configure_logging(cli: &Cli) {
     let mut builder = env_logger::Builder::new();
     builder.filter_level(log::LevelFilter::Info);
-    let log_level = match cli.debug {
-        true => log::LevelFilter::Debug,
-        false => log::LevelFilter::Info,
+    let log_level = if cli.debug {
+        log::LevelFilter::Debug
+    } else {
+        log::LevelFilter::Info
     };
     builder.filter_module("hotprices_au_rs", log_level);
     builder.init();
@@ -85,8 +86,7 @@ fn date_from_str(s: &str) -> StdResult<Date, String> {
     match Date::parse(s, &format) {
         Ok(date) => Ok(date),
         Err(error) => Err(format!(
-            "Error parsing date, use format year-month-day (e.g. 2023-12-31). The parser reported the following error: {}",
-            error
+            "Error parsing date, use format year-month-day (e.g. 2023-12-31). The parser reported the following error: {error}",
         )),
     }
 }
@@ -94,5 +94,5 @@ fn date_from_str(s: &str) -> StdResult<Date, String> {
 #[test]
 fn verify_cli() {
     use clap::CommandFactory;
-    Cli::command().debug_assert()
+    Cli::command().debug_assert();
 }

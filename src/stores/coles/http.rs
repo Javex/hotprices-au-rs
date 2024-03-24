@@ -140,6 +140,6 @@ mod test {
 
     #[test]
     fn new_with_setup() {
-        ColesHttpClient::new_with_setup("", String::from("")).unwrap();
+        ColesHttpClient::new_with_setup("", String::new()).unwrap();
     }
 }

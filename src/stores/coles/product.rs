@@ -46,12 +46,7 @@ impl SearchResult {
     pub fn from_json_value(value: serde_json::Value) -> Result<SearchResult> {
         let obj = match &value {
             serde_json::Value::Object(map) => map,
-            x => {
-                return Err(Error::Message(format!(
-                    "Invalid object type value for {}",
-                    x
-                )))
-            }
+            x => return Err(Error::Message(format!("Invalid object type value for {x}"))),
         };
 
         // _type field must be present
@@ -316,9 +311,12 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
     fn test_missing_price() {
-        get_product_result("search_results/missing_price.json").unwrap();
+        let err = get_product_result("search_results/missing_price.json").unwrap_err();
+        match err {
+            Error::ProductConversion(msg) => assert_eq!(msg, "missing field pricing"),
+            _ => panic!("unexpected type err type"),
+        }
     }
 
     #[test]

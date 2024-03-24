@@ -56,18 +56,16 @@ pub fn parse_str_unit(size: &str) -> Result<(f64, Unit)> {
     let quantity: f64 = captures
         .name("quantity")
         .ok_or(Error::ProductConversion(format!(
-            "missing field quantity in {}",
-            size
+            "missing field quantity in {size}"
         )))?
         .as_str()
         .parse()
-        .map_err(|e| Error::ProductConversion(format!("can't parse quantity as f64: {}", e)))?;
+        .map_err(|e| Error::ProductConversion(format!("can't parse quantity as f64: {e}")))?;
 
     let unit = captures
         .name("unit")
         .ok_or(Error::ProductConversion(format!(
-            "missing field unit for {}",
-            size
+            "missing field unit for {size}"
         )))?
         .as_str();
     let (factor, unit) = normalise_unit(unit)?;
