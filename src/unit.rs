@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::errors::{Error, Result};
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
 pub enum Unit {
     Each,
     Grams,

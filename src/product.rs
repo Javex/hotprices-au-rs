@@ -1,83 +1,100 @@
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use log::info;
-use serde::{Deserialize, Serialize};
-use time::{Date, OffsetDateTime};
+use nonempty::{nonempty, NonEmpty};
+use serde::{self, Deserialize, Serialize};
+use time::Date;
 
-use crate::errors::Result;
 use crate::{stores::Store, unit::Unit};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Product {
-    pub id: i64,
-    pub name: String,
-    pub description: String,
-    pub price: f64,
-    pub price_history: Vec<PriceHistory>,
-    pub is_weighted: bool,
-    pub unit: Unit,
-    pub quantity: f64,
-    pub store: Store,
+pub struct ProductInfo {
+    id: i64,
+    name: String,
+    description: String,
+    is_weighted: bool,
+    unit: Unit,
+    quantity: f64,
+    store: Store,
 }
 
-impl Product {
-    #[allow(clippy::too_many_arguments)]
+impl ProductInfo {
     pub fn new(
         id: i64,
         name: String,
         description: String,
-        price: f64,
         is_weighted: Option<bool>,
         unit: Unit,
         quantity: f64,
         store: Store,
     ) -> Self {
-        let price_history = vec![PriceHistory {
-            date: OffsetDateTime::now_utc().date(),
-            price,
-        }];
-
         Self {
             id,
             name,
             description,
-            price,
-            price_history,
             is_weighted: is_weighted.unwrap_or(false),
             unit,
             quantity,
             store,
         }
     }
+}
 
-    pub fn add_history(&mut self, extra_history: Vec<PriceHistory>) -> bool {
-        // if this assertion triggers it might be worth considering a different design that
-        // enforces a difference between a new product snapshot (with history length of one) and
-        // old product snapshots with real history at compile time using the type system.
-        assert_eq!(
-            self.price_history.len(),
-            1,
-            "To append history the current product should have only one \"history\""
-        );
+pub struct ProductSnapshot {
+    product_info: ProductInfo,
+    price_snapshot: PriceSnapshot,
+}
 
-        let last_price = extra_history
-            .first()
-            .expect("need at least one price in extra_history")
-            .price;
+impl ProductSnapshot {
+    pub fn new(product_info: ProductInfo, price: f64, date: Date) -> Self {
+        Self {
+            product_info,
+            price_snapshot: PriceSnapshot { date, price },
+        }
+    }
 
-        let new_price = self
-            .price_history
-            .first()
-            .expect("new item should have price")
-            .price;
+    pub fn id(&self) -> i64 {
+        self.product_info.id
+    }
 
-        let has_new_price = if new_price != last_price {
-            // Append history
-            self.price_history.extend(extra_history);
+    pub fn name(&self) -> &str {
+        self.product_info.name.as_str()
+    }
+
+    pub fn description(&self) -> &str {
+        self.product_info.description.as_str()
+    }
+
+    pub fn is_weighted(&self) -> bool {
+        self.product_info.is_weighted
+    }
+
+    pub fn store(&self) -> Store {
+        self.product_info.store
+    }
+
+    pub fn price(&self) -> f64 {
+        self.price_snapshot.price
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProductHistory {
+    #[serde(flatten)]
+    product_info: ProductInfo,
+    price_history: NonEmpty<PriceSnapshot>,
+}
+
+impl ProductHistory {
+    pub fn update_from_snapshot(&mut self, snapshot: ProductSnapshot) -> bool {
+        let new_price = snapshot.price();
+        self.product_info = snapshot.product_info;
+
+        let has_new_price = if self.price_history.first().price != new_price {
+            self.price_history.insert(0, snapshot.price_snapshot);
             true
         } else {
-            self.price_history = extra_history;
             false
         };
 
@@ -87,18 +104,63 @@ impl Product {
         // return whether prices were updated
         has_new_price
     }
+
+    pub fn id(&self) -> i64 {
+        self.product_info.id
+    }
+
+    pub fn name(&self) -> &str {
+        self.product_info.name.as_str()
+    }
+
+    pub fn description(&self) -> &str {
+        self.product_info.description.as_str()
+    }
+
+    pub fn is_weighted(&self) -> bool {
+        self.product_info.is_weighted
+    }
+
+    pub fn store(&self) -> Store {
+        self.product_info.store
+    }
+
+    pub fn price(&self) -> f64 {
+        self.price_history.first().price
+    }
+
+    pub fn unit(&self) -> Unit {
+        self.product_info.unit
+    }
+
+    pub fn quantity(&self) -> f64 {
+        self.product_info.quantity
+    }
+
+    pub fn price_history(&self) -> &NonEmpty<PriceSnapshot> {
+        &self.price_history
+    }
+}
+
+impl From<ProductSnapshot> for ProductHistory {
+    fn from(product_snapshot: ProductSnapshot) -> Self {
+        Self {
+            product_info: product_snapshot.product_info,
+            price_history: nonempty![product_snapshot.price_snapshot],
+        }
+    }
 }
 
 use crate::date::date_serde;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct PriceHistory {
+pub struct PriceSnapshot {
     #[serde(with = "date_serde")]
     pub date: Date,
     pub price: f64,
 }
 
-impl Ord for PriceHistory {
+impl Ord for PriceSnapshot {
     fn cmp(&self, other: &Self) -> Ordering {
         match self.date.cmp(&other.date) {
             Ordering::Less => Ordering::Greater,
@@ -108,43 +170,48 @@ impl Ord for PriceHistory {
     }
 }
 
-impl PartialOrd for PriceHistory {
+impl PartialOrd for PriceSnapshot {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl PartialEq for PriceHistory {
+impl PartialEq for PriceSnapshot {
     fn eq(&self, other: &Self) -> bool {
         self.date.eq(&other.date)
     }
 }
 
-impl Eq for PriceHistory {}
+impl Eq for PriceSnapshot {}
 
 pub fn merge_price_history(
-    old_items: Vec<Product>,
-    mut new_items: Vec<Product>,
+    old_items: Vec<ProductHistory>,
+    new_items: Vec<ProductSnapshot>,
     store_filter: Option<Store>,
-) -> Result<Vec<Product>> {
+) -> Vec<ProductHistory> {
+    let mut result: Vec<ProductHistory> = Vec::with_capacity(new_items.len());
+
     let mut old_map = HashMap::with_capacity(old_items.len());
     for item in old_items.into_iter() {
-        if store_filter.is_some_and(|s| s != item.store) {
-            new_items.push(item);
+        if store_filter.is_some_and(|s| s != item.store()) {
+            result.push(item);
         } else {
-            old_map.insert((item.store, item.id), item);
+            old_map.insert((item.store(), item.id()), item);
         }
     }
 
-    let mut store_price_count: HashMap<&Store, u64> = HashMap::new();
-    for new in new_items.iter_mut() {
-        if let Some(old) = old_map.remove(&(new.store, new.id)) {
-            let has_new_price = new.add_history(old.price_history);
+    let mut store_price_count: HashMap<Store, u64> = HashMap::new();
+    for new in new_items.into_iter() {
+        if let Some(mut old) = old_map.remove(&(new.store(), new.id())) {
+            let has_new_price = old.update_from_snapshot(new);
 
             // Track new prices
             if has_new_price {
-                *store_price_count.entry(&new.store).or_insert(0) += 1;
+                *store_price_count.entry(old.store()).or_insert(0) += 1;
             }
+            result.push(old);
+        } else {
+            result.push(new.into());
         }
     }
 
@@ -156,25 +223,24 @@ pub fn merge_price_history(
         info!("Store '{store}' has {count} new prices");
     }
 
-    Ok(new_items)
+    result
 }
 
 #[cfg(test)]
-mod test {
+mod test_merge_price_history {
+    use nonempty::nonempty;
     use time::{Date, Month};
 
     use crate::{stores::Store, unit::Unit};
 
-    use super::{merge_price_history, PriceHistory, Product};
+    use super::{merge_price_history, PriceSnapshot, ProductHistory, ProductInfo, ProductSnapshot};
 
-    impl Default for Product {
+    impl Default for ProductInfo {
         fn default() -> Self {
             Self {
                 id: 1,
                 name: String::from("test name"),
                 description: String::from("test description"),
-                price: 1.0,
-                price_history: vec![PriceHistory::default()],
                 is_weighted: false,
                 unit: Unit::Grams,
                 quantity: 1.0,
@@ -183,7 +249,16 @@ mod test {
         }
     }
 
-    impl Default for PriceHistory {
+    impl ProductInfo {
+        pub fn with_store(store: Store) -> Self {
+            Self {
+                store,
+                ..Default::default()
+            }
+        }
+    }
+
+    impl Default for PriceSnapshot {
         fn default() -> Self {
             Self {
                 date: Date::from_calendar_date(2024, Month::January, 10).expect("valid date"),
@@ -192,10 +267,37 @@ mod test {
         }
     }
 
+    impl Default for ProductHistory {
+        fn default() -> Self {
+            Self {
+                product_info: ProductInfo::default(),
+                price_history: nonempty![PriceSnapshot::default()],
+            }
+        }
+    }
+
+    impl ProductHistory {
+        pub fn with_info(product_info: ProductInfo) -> Self {
+            Self {
+                product_info,
+                ..Default::default()
+            }
+        }
+    }
+
+    impl Default for ProductSnapshot {
+        fn default() -> Self {
+            Self {
+                product_info: ProductInfo::default(),
+                price_snapshot: PriceSnapshot::default(),
+            }
+        }
+    }
+
     #[test]
     fn it_merges() {
-        let old = vec![Product {
-            price_history: vec![PriceHistory {
+        let old = vec![ProductHistory {
+            price_history: nonempty![PriceSnapshot {
                 date: Date::from_calendar_date(2024, Month::January, 10)
                     .expect("should be valid date"),
                 price: 1.0,
@@ -203,50 +305,55 @@ mod test {
             ..Default::default()
         }];
 
-        let new = vec![Product {
-            price_history: vec![PriceHistory {
+        let new = vec![ProductSnapshot {
+            price_snapshot: PriceSnapshot {
                 date: Date::from_calendar_date(2024, Month::January, 11)
                     .expect("should be valid date"),
                 price: 0.5,
-            }],
+            },
             ..Default::default()
         }];
 
-        let merged = merge_price_history(old, new, None).expect("should succeed");
+        let merged = merge_price_history(old, new, None);
         let [ref merged] = merged[..] else {
             panic!("unexpected result size")
         };
 
         assert_eq!(merged.price_history.len(), 2);
-        let [ref newest_price, ref oldest_price] = merged.price_history[..] else {
-            panic!("unexpected price history size")
-        };
+        let newest_price = merged.price_history.first();
+        let oldest_price = merged.price_history.get(1).unwrap();
         assert_eq!(newest_price.price, 0.5);
         assert_eq!(oldest_price.price, 1.0);
     }
 
     #[test]
     fn it_matches_products() {
-        let old = vec![Product {
-            id: 1,
+        let old = vec![ProductHistory {
+            product_info: ProductInfo {
+                id: 1,
+                ..Default::default()
+            },
             ..Default::default()
         }];
 
-        let new = vec![Product {
-            id: 2,
+        let new = vec![ProductSnapshot {
+            product_info: ProductInfo {
+                id: 2,
+                ..Default::default()
+            },
             ..Default::default()
         }];
 
-        let merged = merge_price_history(old, new, None).expect("should succeed");
-        let product_ids: Vec<i64> = merged.iter().map(|p| p.id).collect();
+        let merged = merge_price_history(old, new, None);
+        let product_ids: Vec<i64> = merged.iter().map(|p| p.id()).collect();
         assert!(!product_ids.contains(&1));
         assert!(product_ids.contains(&2));
     }
 
     #[test]
     fn it_skips_unchanged_price() {
-        let old = vec![Product {
-            price_history: vec![PriceHistory {
+        let old = vec![ProductHistory {
+            price_history: nonempty![PriceSnapshot {
                 date: Date::from_calendar_date(2024, Month::January, 10)
                     .expect("should be valid date"),
                 price: 1.0,
@@ -254,37 +361,35 @@ mod test {
             ..Default::default()
         }];
 
-        let new = vec![Product {
-            price_history: vec![PriceHistory {
+        let new = vec![ProductSnapshot {
+            price_snapshot: PriceSnapshot {
                 date: Date::from_calendar_date(2024, Month::January, 11)
                     .expect("should be valid date"),
                 price: 1.0,
-            }],
+            },
             ..Default::default()
         }];
 
-        let merged = merge_price_history(old, new, None).expect("should succeed");
+        let merged = merge_price_history(old, new, None);
         let [ref merged] = merged[..] else {
             panic!("unexpected result size")
         };
 
         assert_eq!(merged.price_history.len(), 1);
-        let [ref price_history] = merged.price_history[..] else {
-            panic!("unexpected price history size")
-        };
-        assert_eq!(price_history.price, 1.0);
+        assert_eq!(merged.price_history.first().price, 1.0);
+        assert_eq!(merged.price(), 1.0);
     }
 
     #[test]
     fn it_preserves_history_on_unchanged_price() {
-        let old = vec![Product {
-            price_history: vec![
-                PriceHistory {
+        let old = vec![ProductHistory {
+            price_history: nonempty![
+                PriceSnapshot {
                     date: Date::from_calendar_date(2024, Month::January, 10)
                         .expect("should be valid date"),
                     price: 1.0,
                 },
-                PriceHistory {
+                PriceSnapshot {
                     date: Date::from_calendar_date(2024, Month::January, 9)
                         .expect("should be valid date"),
                     price: 0.5,
@@ -293,32 +398,31 @@ mod test {
             ..Default::default()
         }];
 
-        let new = vec![Product {
-            price_history: vec![PriceHistory {
+        let new = vec![ProductSnapshot {
+            price_snapshot: PriceSnapshot {
                 date: Date::from_calendar_date(2024, Month::January, 11)
                     .expect("should be valid date"),
                 price: 1.0,
-            }],
+            },
             ..Default::default()
         }];
 
-        let merged = merge_price_history(old, new, None).expect("should succeed");
+        let merged = merge_price_history(old, new, None);
         let [ref merged] = merged[..] else {
             panic!("unexpected result size")
         };
 
         assert_eq!(merged.price_history.len(), 2);
-        let [ref latest_price, ref old_price] = merged.price_history[..] else {
-            panic!("unexpected price history size")
-        };
+        let latest_price = merged.price_history.first();
+        let old_price = merged.price_history.get(1).unwrap();
         assert_eq!(latest_price.price, 1.0);
         assert_eq!(old_price.price, 0.5);
     }
 
     #[test]
     fn it_updates() {
-        let old = vec![Product {
-            price_history: vec![PriceHistory {
+        let old = vec![ProductHistory {
+            price_history: nonempty![PriceSnapshot {
                 date: Date::from_calendar_date(2024, Month::January, 10)
                     .expect("should be valid date"),
                 price: 1.0,
@@ -326,74 +430,91 @@ mod test {
             ..Default::default()
         }];
 
-        let new = vec![Product {
-            name: String::from("New name"),
-            price_history: vec![PriceHistory {
+        let new = vec![ProductSnapshot {
+            product_info: ProductInfo {
+                name: String::from("New name"),
+                ..Default::default()
+            },
+            price_snapshot: PriceSnapshot {
                 date: Date::from_calendar_date(2024, Month::January, 11)
                     .expect("should be valid date"),
                 price: 0.5,
-            }],
-            ..Default::default()
+            },
         }];
 
-        let merged = merge_price_history(old, new, None).expect("should return one product");
+        let merged = merge_price_history(old, new, None);
         let [ref merged] = merged[..] else {
             panic!("unexpected result size")
         };
 
-        assert_eq!(merged.name, "New name");
+        assert_eq!(merged.name(), "New name");
     }
 
     #[test]
     fn it_has_no_old_products() {
-        let old: Vec<Product> = Vec::new();
-        let new = vec![Product::default()];
-        let merged = merge_price_history(old, new, None).expect("should just return new");
+        let old: Vec<ProductHistory> = Vec::new();
+        let new = vec![ProductSnapshot::default()];
+        let merged = merge_price_history(old, new, None);
         assert_eq!(merged.len(), 1);
     }
 
     #[test]
     fn it_removes_old_missing_products() {
-        let old: Vec<Product> = vec![Product {
-            id: 1,
+        let old: Vec<ProductHistory> = vec![ProductHistory {
+            product_info: ProductInfo {
+                id: 1,
+                ..Default::default()
+            },
             ..Default::default()
         }];
-        let new = vec![Product {
-            id: 2,
+        let new = vec![ProductSnapshot {
+            product_info: ProductInfo {
+                id: 2,
+                ..Default::default()
+            },
             ..Default::default()
         }];
-        let merged = merge_price_history(old, new, None).expect("should just return new");
+        let merged = merge_price_history(old, new, None);
         let [ref merged] = merged[..] else {
             panic!("unexpected result size")
         };
-        assert_eq!(merged.id, 2);
+        assert_eq!(merged.id(), 2);
     }
 
     #[test]
     fn merge_with_store_filter() {
         let old = vec![
-            Product {
-                store: Store::Coles,
+            ProductHistory {
+                product_info: ProductInfo {
+                    store: Store::Coles,
+                    ..Default::default()
+                },
                 ..Default::default()
             },
-            Product {
-                store: Store::Woolies,
+            ProductHistory {
+                product_info: ProductInfo {
+                    store: Store::Woolies,
+                    ..Default::default()
+                },
                 ..Default::default()
             },
         ];
 
-        let new = vec![Product {
-            store: Store::Coles,
+        let new = vec![ProductSnapshot {
+            product_info: ProductInfo {
+                store: Store::Coles,
+                ..Default::default()
+            },
             ..Default::default()
         }];
 
-        let merged = merge_price_history(old, new, Some(Store::Coles)).unwrap();
+        let merged = merge_price_history(old, new, Some(Store::Coles));
         assert_eq!(
             merged.len(),
             2,
             "Should return two products for a store each"
         );
-        let merged_stores: Vec<Store> = merged.into_iter().map(|p| p.store).collect();
+        let merged_stores: Vec<Store> = merged.into_iter().map(|p| p.store()).collect();
         assert!(
             merged_stores.contains(&Store::Woolies),
             "Should retain Woolies items when only merging Coles store"
@@ -404,13 +525,13 @@ mod test {
     fn price_history_order() {
         let old_date =
             Date::from_calendar_date(2024, Month::January, 10).expect("should be valid date");
-        let old = PriceHistory {
+        let old = PriceSnapshot {
             date: old_date,
             ..Default::default()
         };
         let new_date =
             Date::from_calendar_date(2024, Month::January, 11).expect("should be valid date");
-        let new = PriceHistory {
+        let new = PriceSnapshot {
             date: new_date,
             ..Default::default()
         };
@@ -426,5 +547,37 @@ mod test {
         };
         assert_eq!(first.date, new_date);
         assert_eq!(second.date, old_date);
+    }
+}
+
+pub fn deduplicate_products(products: Vec<ProductSnapshot>) -> Vec<ProductSnapshot> {
+    let mut lookup = HashSet::new();
+    let mut dedup_products = Vec::new();
+    let mut duplicates = HashMap::new();
+    for product in products {
+        let product_key = (product.store(), product.id());
+        if lookup.contains(&product_key) {
+            *duplicates.entry(product.store()).or_insert(0) += 1;
+        } else {
+            lookup.insert(product_key);
+            dedup_products.push(product);
+        }
+    }
+
+    if !duplicates.is_empty() {
+        info!("Deduplicated products: {:?}", duplicates);
+    }
+    dedup_products
+}
+
+#[cfg(test)]
+mod test_deduplicate_products {
+    use super::deduplicate_products;
+    use crate::product::ProductSnapshot;
+
+    #[test]
+    fn test_deduplicate() {
+        let products = vec![ProductSnapshot::default(), ProductSnapshot::default()];
+        assert_eq!(deduplicate_products(products).len(), 1);
     }
 }

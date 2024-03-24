@@ -4,7 +4,7 @@ pub mod product;
 
 use crate::cache::FsCache;
 use crate::errors::{Error, Result};
-use crate::{product::Product, stores::coles::product::SearchResult};
+use crate::stores::coles::product::SearchResult;
 #[double]
 use http::ColesHttpClient;
 use log::info;
@@ -101,7 +101,7 @@ pub fn fetch(cache: &FsCache, quick: bool) -> Result<()> {
     for category in categories {
         for prod in category {
             let prod = prod.unwrap();
-            let prod: SearchResult = match SearchResult::from_json_value(prod) {
+            let _prod: SearchResult = match SearchResult::from_json_value(prod) {
                 Ok(product) => product,
                 Err(error) => {
                     match error {
@@ -112,17 +112,6 @@ pub fn fetch(cache: &FsCache, quick: bool) -> Result<()> {
                             continue;
                         }
                     }
-                }
-            };
-
-            let _prod: Product = match prod.try_into() {
-                Ok(product) => product,
-                Err(error) => {
-                    info!(
-                        "Failed to convert search result to product, skipping. Error was {}",
-                        error
-                    );
-                    continue;
                 }
             };
         }

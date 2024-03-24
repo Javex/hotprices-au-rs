@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "name": "Product Name",
+    "description": "PRODUCT DESCRIPTION",
+    "price": 12.0,
+    "price_history": [
+      {
+        "date": "2024-01-01",
+        "price": 12.0
+      }
+    ],
+    "is_weighted": true,
+    "unit": "Grams",
+    "quantity": 500.0,
+    "store": "coles"
+  }
+]

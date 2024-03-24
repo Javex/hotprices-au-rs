@@ -1,5 +1,5 @@
 use crate::errors::{Error, Result};
-use crate::product::Product;
+use crate::product::{ProductInfo, ProductSnapshot};
 use crate::stores::Store;
 use crate::unit::{parse_str_unit, Unit};
 use std::fmt::Display;
@@ -10,6 +10,7 @@ use log::{error, info};
 use serde::Deserialize;
 use std::io::Read;
 use tar::Archive;
+use time::Date;
 
 use super::category::SearchResults;
 
@@ -76,6 +77,28 @@ impl SearchResult {
 
         Ok(search_result)
     }
+
+    fn try_into_snapshot_and_date(self, date: Date) -> Result<ProductSnapshot> {
+        let pricing = self.pricing.as_ref().ok_or(Error::ProductConversion(
+            "missing field pricing".to_string(),
+        ))?;
+        let mut name = self.name.clone();
+        if !self.brand.is_empty() {
+            name = format!("{} {}", self.brand, name);
+        }
+
+        let (quantity, unit) = get_quantity_and_unit(&self)?;
+        let product_info = ProductInfo::new(
+            self.id,
+            name,
+            self.description,
+            pricing.unit.is_weighted,
+            unit,
+            quantity,
+            Store::Coles,
+        );
+        Ok(ProductSnapshot::new(product_info, pricing.now, date))
+    }
 }
 
 fn get_quantity_and_unit(item: &SearchResult) -> Result<(f64, Unit)> {
@@ -85,32 +108,6 @@ fn get_quantity_and_unit(item: &SearchResult) -> Result<(f64, Unit)> {
     }
     let (parsed_quantity, unit) = parse_str_unit(size)?;
     Ok((parsed_quantity, unit))
-}
-
-impl TryFrom<SearchResult> for Product {
-    type Error = Error;
-    fn try_from(item: SearchResult) -> StdResult<Self, Self::Error> {
-        let pricing = item.pricing.as_ref().ok_or(Error::ProductConversion(
-            "missing field pricing".to_string(),
-        ))?;
-        let mut name = item.name.clone();
-        if !item.brand.is_empty() {
-            name = format!("{} {}", item.brand, name);
-        }
-
-        let (quantity, unit) = get_quantity_and_unit(&item)?;
-        let product = Product::new(
-            item.id,
-            name,
-            item.description,
-            pricing.now,
-            pricing.unit.is_weighted,
-            unit,
-            quantity,
-            Store::Coles,
-        );
-        Ok(product)
-    }
 }
 
 #[derive(Deserialize)]
@@ -145,15 +142,15 @@ impl Display for ConversionMetrics {
     }
 }
 
-pub fn load_from_legacy(file: impl Read) -> Result<Vec<Product>> {
+pub fn load_from_legacy(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {
     let conversion_results = SearchResultConversion::from_legacy_reader(file)?;
-    let success = conversion_results.validate_conversion(None)?;
+    let success = conversion_results.validate_conversion(None, date)?;
     Ok(success)
 }
 
-pub fn load_from_archive(archive: Archive<impl Read>) -> Result<Vec<Product>> {
+pub fn load_from_archive(archive: Archive<impl Read>, date: Date) -> Result<Vec<ProductSnapshot>> {
     let conversion_results = SearchResultConversion::from_archive(archive)?;
-    let success = conversion_results.validate_conversion(None)?;
+    let success = conversion_results.validate_conversion(None, date)?;
     Ok(success)
 }
 
@@ -216,11 +213,18 @@ impl SearchResultConversion {
         SearchResultConversion { success, failure }
     }
 
-    pub fn validate_conversion(self, success_threshold: Option<f64>) -> Result<Vec<Product>> {
+    pub fn validate_conversion(
+        self,
+        success_threshold: Option<f64>,
+        date: Date,
+    ) -> Result<Vec<ProductSnapshot>> {
         let legacy_success = self.success.len();
         let legacy_failure = self.failure.len();
-        let products: Vec<StdResult<Product, Error>> =
-            self.success.into_iter().map(|s| s.try_into()).collect();
+        let products: Vec<StdResult<ProductSnapshot, Error>> = self
+            .success
+            .into_iter()
+            .map(|s| s.try_into_snapshot_and_date(date))
+            .collect();
         let (success, failure): (Vec<_>, Vec<_>) =
             products.into_iter().partition_map(|v| match v {
                 Ok(v) => Either::Left(v),
@@ -252,6 +256,8 @@ impl SearchResultConversion {
 
 #[cfg(test)]
 mod test {
+    use time::Month;
+
     use super::super::test::load_file;
     use super::*;
 
@@ -283,29 +289,28 @@ mod test {
         assert!(matches!(err, Error::AdResult));
     }
 
-    fn get_product_result(filename: &str) -> Result<Product> {
+    fn get_product_result(filename: &str) -> Result<ProductSnapshot> {
         let file = load_file(filename);
         let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
         let product =
             SearchResult::from_json_value(json_data).expect("Returned error instead of result");
-        product.try_into()
+        let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+        product.try_into_snapshot_and_date(date)
     }
 
-    fn get_product(filename: &str) -> Product {
+    fn get_product(filename: &str) -> ProductSnapshot {
         get_product_result(filename).expect("Expected conversion to succeed")
     }
 
     #[test]
     fn test_load_normal() {
         let product = get_product("search_results/product.json");
-        assert_eq!(product.id, 42);
-        assert_eq!(product.name, "Brand name Product name");
-        assert_eq!(product.description, "BRAND NAME PRODUCT NAME 150G");
-        assert_eq!(product.price_history.len(), 1);
-        let price_history = &product.price_history[0];
-        assert_eq!(price_history.price, 6.7);
+        assert_eq!(product.id(), 42);
+        assert_eq!(product.name(), "Brand name Product name");
+        assert_eq!(product.description(), "BRAND NAME PRODUCT NAME 150G");
+        assert_eq!(product.price(), 6.7);
         // todo: date?
-        assert!(!product.is_weighted);
+        assert!(!product.is_weighted());
     }
 
     #[test]
@@ -317,7 +322,7 @@ mod test {
     #[test]
     fn test_load_empty_brand() {
         let product = get_product("search_results/empty_brand.json");
-        assert_eq!(product.name, "Product name");
+        assert_eq!(product.name(), "Product name");
     }
 
     #[test]

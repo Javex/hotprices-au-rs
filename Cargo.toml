@@ -15,6 +15,10 @@ lazy_static = "1.4.0"
 log = "0.4.21"
 mockall = "0.12.1"
 mockall_double = "0.3.1"
+# nonempty = { version = "0.10.0", features = ["serde"] }
+# Workaround since NonEmpty doesn't have sort yet
+# https://github.com/cloudhead/nonempty/issues/29
+nonempty = { git = "https://github.com/Javex/nonempty.git", features = ["serde", "serialize"], version = "0.10.0" }
 regex = "1.10.3"
 scraper = "0.19.0"
 serde = { version = "1.0.197", features = ["serde_derive"] }
