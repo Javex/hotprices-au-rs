@@ -41,6 +41,7 @@ impl ProductInfo {
     }
 }
 
+#[cfg_attr(test, derive(Default))]
 pub struct ProductSnapshot {
     product_info: ProductInfo,
     price_snapshot: PriceSnapshot,
@@ -281,16 +282,6 @@ mod test_merge_price_history {
             Self {
                 product_info,
                 ..Default::default()
-            }
-        }
-    }
-
-    #[allow(clippy::derivable_impls)]
-    impl Default for ProductSnapshot {
-        fn default() -> Self {
-            Self {
-                product_info: ProductInfo::default(),
-                price_snapshot: PriceSnapshot::default(),
             }
         }
     }
