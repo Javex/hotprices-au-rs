@@ -31,6 +31,7 @@ impl FsCache {
         read_to_string(path)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     pub fn get_or_fetch<'a>(&self, file: String, fetch: FetchCallback<'a>) -> Result<String> {
         let path = self.path.join(file.clone());
         match path.exists() {

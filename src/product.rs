@@ -285,6 +285,7 @@ mod test_merge_price_history {
         }
     }
 
+    #[allow(clippy::derivable_impls)]
     impl Default for ProductSnapshot {
         fn default() -> Self {
             Self {
@@ -540,7 +541,7 @@ mod test_merge_price_history {
         // elements and that's the largest date
         assert!(new < old);
 
-        let mut items = vec![old, new];
+        let mut items = [old, new];
         items.sort();
         let [ref first, ref second] = items[..] else {
             panic!("unexpected")
