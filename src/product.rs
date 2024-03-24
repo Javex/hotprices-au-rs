@@ -48,7 +48,7 @@ pub struct ProductSnapshot {
 }
 
 impl ProductSnapshot {
-    pub fn new(product_info: ProductInfo, price: f64, date: Date) -> Self {
+    pub fn new(product_info: ProductInfo, price: Price, date: Date) -> Self {
         Self {
             product_info,
             price_snapshot: PriceSnapshot { date, price },
@@ -75,7 +75,7 @@ impl ProductSnapshot {
         self.product_info.store
     }
 
-    pub fn price(&self) -> f64 {
+    pub fn price(&self) -> Price {
         self.price_snapshot.price
     }
 }
@@ -126,7 +126,7 @@ impl ProductHistory {
         self.product_info.store
     }
 
-    pub fn price(&self) -> f64 {
+    pub fn price(&self) -> Price {
         self.price_history.first().price
     }
 
@@ -158,7 +158,8 @@ use crate::date::date_serde;
 pub struct PriceSnapshot {
     #[serde(with = "date_serde")]
     pub date: Date,
-    pub price: f64,
+    #[serde(with = "price_serde")]
+    pub price: Price,
 }
 
 impl Ord for PriceSnapshot {
@@ -184,6 +185,40 @@ impl PartialEq for PriceSnapshot {
 }
 
 impl Eq for PriceSnapshot {}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Price {
+    price: i32,
+}
+
+impl From<f64> for Price {
+    fn from(price: f64) -> Self {
+        Self {
+            price: (price * 100.0).round() as i32,
+        }
+    }
+}
+
+pub mod price_serde {
+    use super::Price;
+    use serde::{self, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(price: &Price, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let price = (price.price as f64) / 100.0;
+        serializer.serialize_f64(price)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Price, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let price = f64::deserialize(deserializer)?;
+        Ok(price.into())
+    }
+}
 
 pub fn merge_price_history(
     old_items: Vec<ProductHistory>,
@@ -263,7 +298,7 @@ mod test_merge_price_history {
         fn default() -> Self {
             Self {
                 date: Date::from_calendar_date(2024, Month::January, 10).expect("valid date"),
-                price: 1.0,
+                price: 1.0.into(),
             }
         }
     }
@@ -292,7 +327,7 @@ mod test_merge_price_history {
             price_history: nonempty![PriceSnapshot {
                 date: Date::from_calendar_date(2024, Month::January, 10)
                     .expect("should be valid date"),
-                price: 1.0,
+                price: 1.0.into(),
             }],
             ..Default::default()
         }];
@@ -301,7 +336,7 @@ mod test_merge_price_history {
             price_snapshot: PriceSnapshot {
                 date: Date::from_calendar_date(2024, Month::January, 11)
                     .expect("should be valid date"),
-                price: 0.5,
+                price: 0.5.into(),
             },
             ..Default::default()
         }];
@@ -311,11 +346,15 @@ mod test_merge_price_history {
             panic!("unexpected result size")
         };
 
-        assert_eq!(merged.price_history.len(), 2);
+        assert_eq!(
+            merged.price_history.len(),
+            2,
+            "should have merged price history of two snapshots"
+        );
         let newest_price = merged.price_history.first();
         let oldest_price = merged.price_history.get(1).unwrap();
-        assert_eq!(newest_price.price, 0.5);
-        assert_eq!(oldest_price.price, 1.0);
+        assert_eq!(newest_price.price, 0.5.into());
+        assert_eq!(oldest_price.price, 1.0.into());
     }
 
     #[test]
@@ -348,7 +387,7 @@ mod test_merge_price_history {
             price_history: nonempty![PriceSnapshot {
                 date: Date::from_calendar_date(2024, Month::January, 10)
                     .expect("should be valid date"),
-                price: 1.0,
+                price: 1.0.into(),
             }],
             ..Default::default()
         }];
@@ -357,7 +396,7 @@ mod test_merge_price_history {
             price_snapshot: PriceSnapshot {
                 date: Date::from_calendar_date(2024, Month::January, 11)
                     .expect("should be valid date"),
-                price: 1.0,
+                price: 1.0.into(),
             },
             ..Default::default()
         }];
@@ -368,8 +407,8 @@ mod test_merge_price_history {
         };
 
         assert_eq!(merged.price_history.len(), 1);
-        assert_eq!(merged.price_history.first().price, 1.0);
-        assert_eq!(merged.price(), 1.0);
+        assert_eq!(merged.price_history.first().price, 1.0.into());
+        assert_eq!(merged.price(), 1.0.into());
     }
 
     #[test]
@@ -379,12 +418,12 @@ mod test_merge_price_history {
                 PriceSnapshot {
                     date: Date::from_calendar_date(2024, Month::January, 10)
                         .expect("should be valid date"),
-                    price: 1.0,
+                    price: 1.0.into(),
                 },
                 PriceSnapshot {
                     date: Date::from_calendar_date(2024, Month::January, 9)
                         .expect("should be valid date"),
-                    price: 0.5,
+                    price: 0.5.into(),
                 },
             ],
             ..Default::default()
@@ -394,7 +433,7 @@ mod test_merge_price_history {
             price_snapshot: PriceSnapshot {
                 date: Date::from_calendar_date(2024, Month::January, 11)
                     .expect("should be valid date"),
-                price: 1.0,
+                price: 1.0.into(),
             },
             ..Default::default()
         }];
@@ -407,8 +446,8 @@ mod test_merge_price_history {
         assert_eq!(merged.price_history.len(), 2);
         let latest_price = merged.price_history.first();
         let old_price = merged.price_history.get(1).unwrap();
-        assert_eq!(latest_price.price, 1.0);
-        assert_eq!(old_price.price, 0.5);
+        assert_eq!(latest_price.price, 1.0.into());
+        assert_eq!(old_price.price, 0.5.into());
     }
 
     #[test]
@@ -417,7 +456,7 @@ mod test_merge_price_history {
             price_history: nonempty![PriceSnapshot {
                 date: Date::from_calendar_date(2024, Month::January, 10)
                     .expect("should be valid date"),
-                price: 1.0,
+                price: 1.0.into(),
             }],
             ..Default::default()
         }];
@@ -430,7 +469,7 @@ mod test_merge_price_history {
             price_snapshot: PriceSnapshot {
                 date: Date::from_calendar_date(2024, Month::January, 11)
                     .expect("should be valid date"),
-                price: 0.5,
+                price: 0.5.into(),
             },
         }];
 
@@ -571,5 +610,18 @@ mod test_deduplicate_products {
     fn test_deduplicate() {
         let products = vec![ProductSnapshot::default(), ProductSnapshot::default()];
         assert_eq!(deduplicate_products(products).len(), 1);
+    }
+}
+
+#[cfg(test)]
+mod test_price {
+    use super::Price;
+
+    #[test]
+    fn test_into() {
+        let price: Price = 1.0.into();
+        assert_eq!(price.price, 100);
+        let price: Price = 0.5.into();
+        assert_eq!(price.price, 50);
     }
 }

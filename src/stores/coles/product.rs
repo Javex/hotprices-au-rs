@@ -1,4 +1,5 @@
 use crate::errors::{Error, Result};
+use crate::product::{price_serde, Price};
 use crate::product::{ProductInfo, ProductSnapshot};
 use crate::stores::Store;
 use crate::unit::{parse_str_unit, Unit};
@@ -26,7 +27,8 @@ struct PricingUnit {
 
 #[derive(Deserialize, Debug)]
 struct Pricing {
-    now: f64,
+    #[serde(with = "price_serde")]
+    now: Price,
     unit: PricingUnit,
 }
 
@@ -274,7 +276,7 @@ mod test {
         assert_eq!(product.description, "BRAND NAME PRODUCT NAME 150G");
         assert_eq!(product.size, "150g");
         let pricing = product.pricing.expect("Price should not be missing");
-        assert_eq!(pricing.now, 6.7);
+        assert_eq!(pricing.now, 6.7.into());
         let unit = pricing.unit;
         assert!(!unit.is_weighted.unwrap());
     }
@@ -308,7 +310,7 @@ mod test {
         assert_eq!(product.id(), 42);
         assert_eq!(product.name(), "Brand name Product name");
         assert_eq!(product.description(), "BRAND NAME PRODUCT NAME 150G");
-        assert_eq!(product.price(), 6.7);
+        assert_eq!(product.price(), 6.7.into());
         // todo: date?
         assert!(!product.is_weighted());
     }

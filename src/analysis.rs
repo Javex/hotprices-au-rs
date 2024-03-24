@@ -135,12 +135,12 @@ mod test_do_analysis {
         assert_eq!(price_history.len(), 2);
         let new_price = price_history.first();
         let old_price = price_history.get(1).unwrap();
-        assert_eq!(new_price.price, 6.7);
+        assert_eq!(new_price.price, 6.7.into());
         assert_eq!(
             new_price.date,
             Date::from_calendar_date(2024, Month::January, 2).unwrap()
         );
-        assert_eq!(old_price.price, 12.0);
+        assert_eq!(old_price.price, 12.0.into());
         assert_eq!(
             old_price.date,
             Date::from_calendar_date(2024, Month::January, 1).unwrap()
