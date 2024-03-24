@@ -13,7 +13,7 @@ pub enum Unit {
 }
 
 lazy_static! {
-    static ref UNIT_REGEX: Regex = Regex::new(r#"(?P<quantity>[0-9]+) ?(?P<unit>[a-z]+)"#).unwrap();
+    static ref UNIT_REGEX: Regex = Regex::new(r"(?P<quantity>[0-9]+) ?(?P<unit>[a-z]+)").unwrap();
     static ref EACH_WORDS: Vec<&'static str> = vec![
         "ea", "each", "pk", "pack", "bunch", "sheets", "sachets", "capsules", "ss", "set", "pair",
         "pairs", "piece", "tablets", "rolls",
@@ -39,7 +39,7 @@ pub fn normalise_unit(unit: &str) -> Result<(f64, Unit)> {
         "dozen" => (12.0, Unit::Each),
         x if EACH_WORDS.contains(&x) => (1.0, Unit::Each),
 
-        _ => return Err(Error::ProductConversion(format!("unknown unit: {}", unit))),
+        _ => return Err(Error::ProductConversion(format!("unknown unit: {unit}"))),
     };
     Ok((factor, unit))
 }
@@ -49,8 +49,7 @@ pub fn parse_str_unit(size: &str) -> Result<(f64, Unit)> {
     let captures = UNIT_REGEX
         .captures(&size)
         .ok_or(Error::ProductConversion(format!(
-            "regex didn't match for {}",
-            size
+            "regex didn't match for {size}"
         )))?;
 
     let quantity: f64 = captures

@@ -57,8 +57,7 @@ impl SearchResult {
             serde_json::Value::String(s) => s,
             x => {
                 return Err(Error::Message(format!(
-                    "Invalid type for _type, expected string: {}",
-                    x
+                    "Invalid type for _type, expected string: {x}"
                 )))
             }
         };
@@ -187,7 +186,7 @@ impl SearchResultConversion {
             success: Vec::new(),
             failure: Vec::new(),
         };
-        for item in data.into_iter() {
+        for item in data {
             conversion_results.success.extend(item.success);
             conversion_results.failure.extend(item.failure);
         }
@@ -242,8 +241,7 @@ impl SearchResultConversion {
                 success_threshold, metrics
             );
             return Err(Error::ProductConversion(format!(
-                "Error threshold of {} for conversion exceeded: {}",
-                success_threshold, metrics,
+                "Error threshold of {success_threshold} for conversion exceeded: {metrics}",
             )));
         }
         info!("Conversion succeeded: {}", metrics);

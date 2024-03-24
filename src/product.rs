@@ -42,6 +42,7 @@ impl ProductInfo {
 }
 
 #[cfg_attr(test, derive(Default))]
+#[derive(Debug)]
 pub struct ProductSnapshot {
     product_info: ProductInfo,
     price_snapshot: PriceSnapshot,
@@ -207,7 +208,7 @@ pub mod price_serde {
     where
         S: Serializer,
     {
-        let price = (price.price as f64) / 100.0;
+        let price = f64::from(price.price) / 100.0;
         serializer.serialize_f64(price)
     }
 
@@ -228,7 +229,7 @@ pub fn merge_price_history(
     let mut result: Vec<ProductHistory> = Vec::with_capacity(new_items.len());
 
     let mut old_map = HashMap::with_capacity(old_items.len());
-    for item in old_items.into_iter() {
+    for item in old_items {
         if store_filter.is_some_and(|s| s != item.store()) {
             result.push(item);
         } else {
@@ -237,7 +238,7 @@ pub fn merge_price_history(
     }
 
     let mut store_price_count: HashMap<Store, u64> = HashMap::new();
-    for new in new_items.into_iter() {
+    for new in new_items {
         if let Some(mut old) = old_map.remove(&(new.store(), new.id())) {
             let has_new_price = old.update_from_snapshot(new);
 

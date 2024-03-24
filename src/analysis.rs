@@ -17,9 +17,7 @@ pub fn do_analysis(
     output_dir: &Path,
     data_dir: &Path,
 ) -> Result<()> {
-    if history {
-        panic!("history backfill");
-    }
+    assert!(!history, "history backfill");
     let previous_products = load_history(output_dir)?;
     let new_products = load_daily_snapshot(output_dir, day, store)?;
     let new_products = deduplicate_products(new_products);
