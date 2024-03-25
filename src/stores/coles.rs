@@ -3,8 +3,9 @@ mod http;
 pub mod product;
 
 use crate::cache::FsCache;
-use crate::errors::{Error, Result};
+use crate::errors::Error;
 use crate::stores::coles::product::SearchResult;
+use anyhow::bail;
 #[double]
 use http::ColesHttpClient;
 use log::info;
@@ -55,17 +56,14 @@ struct CategoryFields {
     seo_token: String,
 }
 
-fn get_setup_data(client: &ColesHttpClient) -> Result<(String, String)> {
+fn get_setup_data(client: &ColesHttpClient) -> anyhow::Result<(String, String)> {
     let resp = client.get_setup_data()?;
-    let selector = Selector::parse("script#__NEXT_DATA__")?;
+    let selector = Selector::parse("script#__NEXT_DATA__")
+        .map_err(|err| anyhow::Error::msg(err.to_string()))?;
     let doc = scraper::Html::parse_document(&resp);
     let next_data_script = match doc.select(&selector).next() {
         Some(x) => x,
-        None => {
-            return Err(Error::Message(
-                "couldn't find __NEXT_DATA__ script in HTML".to_string(),
-            ))
-        }
+        None => bail!("couldn't find __NEXT_DATA__ script in HTML",),
     };
     let next_data_script = next_data_script.inner_html();
     let next_data: NextData = serde_json::from_str(&next_data_script)?;
@@ -75,7 +73,7 @@ fn get_setup_data(client: &ColesHttpClient) -> Result<(String, String)> {
     Ok((api_key, version))
 }
 
-fn get_versioned_client(client: &ColesHttpClient) -> Result<ColesHttpClient> {
+fn get_versioned_client(client: &ColesHttpClient) -> anyhow::Result<ColesHttpClient> {
     let (api_key, version) = get_setup_data(client)?;
     let client = ColesHttpClient::new_with_setup(&api_key, version)?;
     Ok(client)
@@ -84,7 +82,7 @@ fn get_versioned_client(client: &ColesHttpClient) -> Result<ColesHttpClient> {
 fn get_categories<'a>(
     cache: &'a FsCache,
     client: &'a ColesHttpClient,
-) -> Result<Vec<category::Category<'a>>> {
+) -> anyhow::Result<Vec<category::Category<'a>>> {
     let resp = client.get_categories()?;
     let categories: Categories = serde_json::from_str(&resp)?;
     let categories = categories.get_items(client, cache);
@@ -92,7 +90,7 @@ fn get_categories<'a>(
     Ok(categories)
 }
 
-pub fn fetch(cache: &FsCache, quick: bool) -> Result<()> {
+pub fn fetch(cache: &FsCache, quick: bool) -> anyhow::Result<()> {
     log::info!("Starting fetch for coles");
     let client = ColesHttpClient::new()?;
     let client = get_versioned_client(&client)?;

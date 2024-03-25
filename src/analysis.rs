@@ -1,11 +1,10 @@
 use std::{fs, path::Path};
 
-use log::{debug, error};
+use log::debug;
 use strum::IntoEnumIterator;
 use time::{macros::format_description, Date};
 
 use crate::{
-    errors::{Error, Result},
     product::{deduplicate_products, merge_price_history},
     storage::{load_daily_snapshot, load_history, save_result, save_to_site},
     stores::Store,
@@ -17,7 +16,7 @@ pub enum AnalysisType {
 }
 
 impl AnalysisType {
-    pub fn days(self, output_dir: &Path, store_filter: Option<Store>) -> Result<Vec<Date>> {
+    pub fn days(self, output_dir: &Path, store_filter: Option<Store>) -> anyhow::Result<Vec<Date>> {
         match self {
             AnalysisType::History => history_days(output_dir, store_filter),
             AnalysisType::Day(day) => Ok(vec![day]),
@@ -25,7 +24,7 @@ impl AnalysisType {
     }
 }
 
-fn history_days(output_dir: &Path, store_filter: Option<Store>) -> Result<Vec<Date>> {
+fn history_days(output_dir: &Path, store_filter: Option<Store>) -> anyhow::Result<Vec<Date>> {
     let mut entries: Vec<Date> = Vec::new();
     for store in Store::iter() {
         if store_filter.is_some_and(|s| s != store) {
@@ -33,7 +32,7 @@ fn history_days(output_dir: &Path, store_filter: Option<Store>) -> Result<Vec<Da
         }
 
         for entry in fs::read_dir(output_dir.join(store.to_string()))? {
-            let entry = entry.map_err(Error::from)?;
+            let entry = entry.map_err(anyhow::Error::from)?;
             let path = entry.path();
             if !path.is_file() {
                 debug!("Skipping path {path:?} since it is not a file");
@@ -42,8 +41,9 @@ fn history_days(output_dir: &Path, store_filter: Option<Store>) -> Result<Vec<Da
             let file_name = match path.file_name() {
                 Some(file_name) => file_name,
                 None => {
-                    error!("Path {path:?} is not a file, can't read");
-                    return Err(Error::Message("not a file".to_string()));
+                    return Err(anyhow::Error::msg(format!(
+                        "Path {path:?} is not a file, can't read"
+                    )))
                 }
             };
             let file_name = file_name.to_str().expect("file path should be valid str");
@@ -51,8 +51,9 @@ fn history_days(output_dir: &Path, store_filter: Option<Store>) -> Result<Vec<Da
             let basename = match splits.next() {
                 Some(b) => b,
                 None => {
-                    error!("File {file_name:?} can't be split");
-                    return Err(Error::Message("missing file extension".to_string()));
+                    return Err(anyhow::Error::msg(format!(
+                        "File {file_name:?} can't be split"
+                    )));
                 }
             };
 
@@ -60,8 +61,8 @@ fn history_days(output_dir: &Path, store_filter: Option<Store>) -> Result<Vec<Da
             let date = match Date::parse(basename, &format) {
                 Ok(date) => date,
                 Err(e) => {
-                    error!("Cannot convert {basename:?} to date");
-                    return Err(Error::Message(e.to_string()));
+                    return Err(anyhow::Error::from(e)
+                        .context(format!("Cannot convert {basename:?} to date")));
                 }
             };
             debug!("Extracted date {date:?} fromm path {path:?}");
@@ -78,7 +79,7 @@ pub fn do_analysis(
     compress: bool,
     output_dir: &Path,
     data_dir: &Path,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     let previous_products = match load_history(output_dir) {
         Ok(products) => products,
         Err(e) => match analysis_type {

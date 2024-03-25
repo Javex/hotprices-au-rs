@@ -6,6 +6,7 @@ use crate::unit::{parse_str_unit, Unit};
 use std::fmt::Display;
 use std::result::Result as StdResult;
 
+use anyhow::anyhow;
 use itertools::{Either, Itertools};
 use log::{error, info};
 use serde::Deserialize;
@@ -46,20 +47,16 @@ impl SearchResult {
     pub fn from_json_value(value: serde_json::Value) -> Result<SearchResult> {
         let obj = match &value {
             serde_json::Value::Object(map) => map,
-            x => return Err(Error::Message(format!("Invalid object type value for {x}"))),
+            x => return Err(anyhow!("Invalid object type value for {x}").into()),
         };
 
         // _type field must be present
         let result_type = obj
             .get("_type")
-            .ok_or(Error::Message("Missing key _type".to_string()))?;
+            .ok_or_else(|| anyhow!("Missing key _type"))?;
         let result_type = match result_type {
             serde_json::Value::String(s) => s,
-            x => {
-                return Err(Error::Message(format!(
-                    "Invalid type for _type, expected string: {x}"
-                )))
-            }
+            x => return Err(anyhow!("Invalid type for _type, expected string: {x}").into()),
         };
 
         // Ads are ignored here
@@ -177,7 +174,7 @@ impl SearchResultConversion {
                 _ => Some(SearchResults::from_reader(entry).map(|r| r.results)),
             })
             .flatten()
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<anyhow::Result<Vec<_>>>()?;
         let conversion_result_all = Self::full_product_list(json_data);
         Ok(conversion_result_all)
     }

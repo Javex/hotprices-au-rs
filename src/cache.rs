@@ -1,11 +1,10 @@
-use crate::errors::Result;
 use std::fs::{create_dir_all, read_to_string, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
 
 use mockall::automock;
 
-pub type FetchCallback<'a> = &'a dyn Fn() -> Result<String>;
+pub type FetchCallback<'a> = &'a dyn Fn() -> anyhow::Result<String>;
 
 pub struct FsCache {
     path: PathBuf,
@@ -32,7 +31,11 @@ impl FsCache {
     }
 
     #[allow(clippy::needless_lifetimes)]
-    pub fn get_or_fetch<'a>(&self, file: String, fetch: FetchCallback<'a>) -> Result<String> {
+    pub fn get_or_fetch<'a>(
+        &self,
+        file: String,
+        fetch: FetchCallback<'a>,
+    ) -> anyhow::Result<String> {
         let path = self.path.join(file.clone());
         match path.exists() {
             true => {

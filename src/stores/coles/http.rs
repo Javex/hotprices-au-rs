@@ -1,6 +1,6 @@
 use std::{thread, time::Duration};
 
-use crate::errors::{Error, Result};
+use anyhow::anyhow;
 use cookie_store::CookieStore;
 use log::{error, info};
 use mockall::automock;
@@ -35,15 +35,15 @@ pub struct ColesHttpClient {
 #[automock]
 #[allow(dead_code)]
 impl ColesHttpClient {
-    pub fn new() -> Result<Self> {
+    pub fn new() -> anyhow::Result<Self> {
         Self::new_client(None, None)
     }
 
-    pub fn new_with_setup(api_key: &str, version: String) -> Result<Self> {
+    pub fn new_with_setup(api_key: &str, version: String) -> anyhow::Result<Self> {
         Self::new_client(Some(String::from(api_key)), Some(version))
     }
 
-    fn new_client(api_key: Option<String>, version: Option<String>) -> Result<Self> {
+    fn new_client(api_key: Option<String>, version: Option<String>) -> anyhow::Result<Self> {
         let cookie_store = CookieStore::new(None);
         let client = ureq::builder()
             .cookie_store(cookie_store)
@@ -61,7 +61,7 @@ impl ColesHttpClient {
         })
     }
 
-    fn get(&self, url: &str) -> Result<String> {
+    fn get(&self, url: &str) -> anyhow::Result<String> {
         log::info!("Loading url '{url}'");
         for retry_count in 0..self.retry_policy.total {
             let request = self
@@ -92,7 +92,8 @@ impl ColesHttpClient {
                         "Failed request after {} retries, giving up due to error {}",
                         retry_count, error
                     );
-                    return Err(Error::Http(Box::new(error)));
+                    return Err(anyhow::Error::new(error)
+                        .context(format!("Failed request after {retry_count} retries")));
                 }
             };
 
@@ -101,20 +102,20 @@ impl ColesHttpClient {
         panic!("Ended retry loop unexpectedly");
     }
 
-    pub fn get_setup_data(&self) -> Result<String> {
+    pub fn get_setup_data(&self) -> anyhow::Result<String> {
         self.get(BASE_URL)
     }
 
-    pub fn get_categories(&self) -> Result<String> {
+    pub fn get_categories(&self) -> anyhow::Result<String> {
         let cat_url = format!("{BASE_URL}/api/bff/products/categories?storeId={STORE_ID}");
         self.get(&cat_url)
     }
 
-    pub fn get_category(&self, slug: &str, page: i32) -> Result<String> {
+    pub fn get_category(&self, slug: &str, page: i32) -> anyhow::Result<String> {
         let version = &self
             .version
             .as_ref()
-            .ok_or(Error::Message("Must set version".to_string()))?;
+            .ok_or_else(|| anyhow!("Must set version"))?;
         let url = format!(
             "{BASE_URL}/_next/data/{version}/en/browse/{slug}.json?page={page}&slug={slug}"
         );
@@ -124,18 +125,13 @@ impl ColesHttpClient {
 
 #[cfg(test)]
 mod test {
-    use core::panic;
-
     use super::*;
 
     #[test]
     fn new_unconfigured_fails_get_category() {
         let client = ColesHttpClient::new().unwrap();
         let res = client.get_category("", 0).unwrap_err();
-        match res {
-            Error::Message(m) => assert_eq!(m, "Must set version"),
-            e => panic!("Unexpected error type: {}", e),
-        }
+        assert_eq!(res.to_string(), "Must set version");
     }
 
     #[test]

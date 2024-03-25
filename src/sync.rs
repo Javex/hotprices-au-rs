@@ -1,5 +1,4 @@
 use crate::cache::FsCache;
-use crate::errors::Result;
 use crate::storage::{compress, remove};
 use crate::stores::{coles, Store};
 use std::path::PathBuf;
@@ -11,7 +10,7 @@ pub fn do_sync(
     print_save_path: bool,
     skip_existing: bool,
     output_dir: PathBuf,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     if print_save_path || skip_existing {
         todo!("Not implemented yet");
     }

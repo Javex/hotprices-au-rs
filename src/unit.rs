@@ -2,7 +2,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::errors::{Error, Result};
+use crate::errors::Error;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
 pub enum Unit {
@@ -20,7 +20,7 @@ lazy_static! {
     ];
 }
 
-pub fn normalise_unit(unit: &str) -> Result<(f64, Unit)> {
+pub fn normalise_unit(unit: &str) -> anyhow::Result<(f64, Unit)> {
     let (factor, unit) = match unit {
         // Grams
         "g" => (1.0, Unit::Grams),
@@ -39,12 +39,15 @@ pub fn normalise_unit(unit: &str) -> Result<(f64, Unit)> {
         "dozen" => (12.0, Unit::Each),
         x if EACH_WORDS.contains(&x) => (1.0, Unit::Each),
 
-        _ => return Err(Error::ProductConversion(format!("unknown unit: {unit}"))),
+        _ => {
+            let err = Error::ProductConversion(format!("unknown unit: {unit}"));
+            return Err(anyhow::Error::from(err));
+        }
     };
     Ok((factor, unit))
 }
 
-pub fn parse_str_unit(size: &str) -> Result<(f64, Unit)> {
+pub fn parse_str_unit(size: &str) -> anyhow::Result<(f64, Unit)> {
     let size = size.to_lowercase();
     let captures = UNIT_REGEX
         .captures(&size)

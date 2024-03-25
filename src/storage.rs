@@ -12,11 +12,10 @@ use strum::IntoEnumIterator;
 use tar::Archive;
 use time::Date;
 
-use crate::errors::{Error, Result};
 use crate::product::{ProductHistory, ProductSnapshot};
 use crate::stores::{coles, Store};
 
-pub fn compress(source: &PathBuf) -> Result<()> {
+pub fn compress(source: &PathBuf) -> anyhow::Result<()> {
     let mut file = source.clone();
     file.set_extension("tar.gz");
     info!(
@@ -30,7 +29,7 @@ pub fn compress(source: &PathBuf) -> Result<()> {
     archive.append_dir_all(
         source
             .file_name()
-            .ok_or(Error::Message("Bad file name".to_string()))?,
+            .ok_or(anyhow::Error::msg("Bad file name"))?,
         source,
     )?;
     archive.finish()?;
@@ -42,7 +41,7 @@ pub fn remove(source: &Path) -> io::Result<()> {
     fs::remove_dir_all(source)
 }
 
-pub fn load_history(output_dir: &Path) -> Result<Vec<ProductHistory>> {
+pub fn load_history(output_dir: &Path) -> anyhow::Result<Vec<ProductHistory>> {
     let file = output_dir.join("latest-canonical.json.gz");
     let file = File::open(file)?;
     let file = GzDecoder::new(file);
@@ -56,7 +55,7 @@ pub fn load_daily_snapshot(
     output_dir: &Path,
     day: Date,
     store_filter: Option<Store>,
-) -> Result<Vec<ProductSnapshot>> {
+) -> anyhow::Result<Vec<ProductSnapshot>> {
     let mut products = Vec::new();
     for store in Store::iter() {
         if store_filter.is_some_and(|s| s != store) {
@@ -96,7 +95,7 @@ pub fn load_daily_snapshot(
     Ok(products)
 }
 
-pub fn save_result(products: &Vec<ProductHistory>, output_dir: &Path) -> Result<()> {
+pub fn save_result(products: &Vec<ProductHistory>, output_dir: &Path) -> anyhow::Result<()> {
     let file = output_dir.join("latest-canonical.json.gz");
     let file = File::create(file)?;
     let file = GzEncoder::new(file, Compression::default());
@@ -105,7 +104,11 @@ pub fn save_result(products: &Vec<ProductHistory>, output_dir: &Path) -> Result<
     Ok(())
 }
 
-pub fn save_to_site(products: &[ProductHistory], data_dir: &Path, compress: bool) -> Result<()> {
+pub fn save_to_site(
+    products: &[ProductHistory],
+    data_dir: &Path,
+    compress: bool,
+) -> anyhow::Result<()> {
     // create the data_dir if it doesn't exist yet
     create_dir_all(data_dir)?;
 

@@ -3,7 +3,6 @@ use std::io::Read;
 #[double]
 use super::http::ColesHttpClient;
 use crate::cache::FsCache;
-use crate::errors::Result;
 use log::debug;
 use mockall_double::double;
 use serde::Deserialize;
@@ -17,7 +16,7 @@ pub struct SearchResults {
 }
 
 impl SearchResults {
-    pub fn from_reader(reader: impl Read) -> Result<SearchResults> {
+    pub fn from_reader(reader: impl Read) -> anyhow::Result<SearchResults> {
         let json_data: CategoryJson = serde_json::from_reader(reader)?;
         Ok(json_data.page_props.search_results)
     }
@@ -57,7 +56,7 @@ impl<'a> Category<'a> {
             cache,
         }
     }
-    fn get_category(&self, page: i32) -> Result<SearchResults> {
+    fn get_category(&self, page: i32) -> anyhow::Result<SearchResults> {
         let path = format!("categories/{}/page_{}.json", self.slug, page);
         let fetch = &|| self.client.get_category(&self.slug, page);
         let resp = self.cache.get_or_fetch(path, fetch)?;
@@ -67,7 +66,7 @@ impl<'a> Category<'a> {
 }
 
 impl<'a> Iterator for Category<'a> {
-    type Item = Result<serde_json::Value>;
+    type Item = anyhow::Result<serde_json::Value>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.buf.is_empty() && !self.finished {
