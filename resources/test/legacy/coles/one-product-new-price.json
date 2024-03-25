@@ -1,0 +1,21 @@
+[
+  {
+    "Products": [
+      {
+        "_type": "PRODUCT",
+        "id": 1,
+        "adId": null,
+        "name": "Product name",
+        "brand": "Brand name",
+        "description": "BRAND NAME PRODUCT NAME 150G",
+        "size": "150g",
+        "pricing": {
+          "now": 7.8,
+          "unit": {
+            "isWeighted": false
+          }
+        }
+      }
+    ]
+  }
+]

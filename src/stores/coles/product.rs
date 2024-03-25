@@ -109,7 +109,7 @@ fn get_quantity_and_unit(item: &SearchResult) -> Result<(f64, Unit)> {
 #[derive(Deserialize)]
 struct LegacyCategory {
     #[serde(rename = "Products")]
-    products: Vec<serde_json::Value>,
+    products: Option<Vec<serde_json::Value>>,
 }
 
 struct ConversionMetrics {
@@ -160,7 +160,10 @@ type ProductList = Vec<serde_json::Value>;
 impl SearchResultConversion {
     fn from_legacy_reader(file: impl Read) -> Result<Self> {
         let json_data: Vec<LegacyCategory> = serde_json::from_reader(file)?;
-        let json_data: Vec<ProductList> = json_data.into_iter().map(|c| c.products).collect();
+        let json_data: Vec<ProductList> = json_data
+            .into_iter()
+            .map(|c| c.products.unwrap_or_default())
+            .collect();
         let conversion_results = Self::full_product_list(json_data);
 
         Ok(conversion_results)

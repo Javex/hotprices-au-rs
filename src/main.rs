@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use hotprices_au_rs::analysis::do_analysis;
+use hotprices_au_rs::analysis::{do_analysis, AnalysisType};
 use hotprices_au_rs::stores::Store;
 use hotprices_au_rs::sync::do_sync;
 use log::error;
@@ -36,7 +36,14 @@ fn main() {
             compress,
             history,
             data_dir,
-        } => do_analysis(day, store, compress, history, &cli.output_dir, &data_dir),
+        } => {
+            let analysis_type = if history {
+                AnalysisType::History
+            } else {
+                AnalysisType::Day(day)
+            };
+            do_analysis(analysis_type, store, compress, &cli.output_dir, &data_dir)
+        }
     };
 
     // Print error message if result contained an error
