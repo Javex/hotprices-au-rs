@@ -29,4 +29,4 @@ tar = "0.4.40"
 tempfile = "3.10.1"
 thiserror = "1.0.58"
 time = "0.3.34"
-ureq = { version = "2.9.6", features = ["cookies"] }
+ureq = { version = "2.9.6", features = ["cookies", "json"] }

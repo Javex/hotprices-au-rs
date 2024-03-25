@@ -8,7 +8,7 @@ use crate::stores::coles::product::SearchResult;
 use anyhow::bail;
 #[double]
 use http::ColesHttpClient;
-use log::info;
+use log::{debug, info};
 use mockall_double::double;
 use scraper::Selector;
 use serde::Deserialize;
@@ -95,7 +95,7 @@ pub fn fetch(cache: &FsCache, quick: bool) -> anyhow::Result<()> {
     let client = ColesHttpClient::new()?;
     let client = get_versioned_client(&client)?;
     let categories = get_categories(cache, &client)?;
-    println!("{}", categories.len());
+    debug!("Loaded categories for Coles, have {}", categories.len());
     for category in categories {
         for prod in category {
             let prod = prod.unwrap();

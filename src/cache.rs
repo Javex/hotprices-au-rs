@@ -53,10 +53,10 @@ impl FsCache {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use super::*;
 
-    fn get_cache() -> FsCache {
+    pub fn get_cache() -> FsCache {
         // create temporary folder to operate in
         let tmp = tempfile::tempdir().unwrap();
         FsCache::new(tmp.path().to_owned())

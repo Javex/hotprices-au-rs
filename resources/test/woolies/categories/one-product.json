@@ -1,0 +1,14 @@
+{
+  "Products": [
+    {
+      "Stockcode": 123,
+      "CupPrice": 2.07,
+      "CupMeasure": "100G",
+      "Price": 12.02,
+      "Name": "product name",
+      "Description": "some long product description",
+      "Unit": "Each",
+      "PackageSize": "100g"
+    }
+  ]
+}

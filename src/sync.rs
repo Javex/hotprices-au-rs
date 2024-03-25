@@ -1,6 +1,7 @@
 use crate::cache::FsCache;
 use crate::storage::{compress, remove};
-use crate::stores::{coles, Store};
+use crate::stores::{coles, woolies, Store};
+use std::fs::create_dir_all;
 use std::path::PathBuf;
 use time::OffsetDateTime;
 
@@ -16,10 +17,11 @@ pub fn do_sync(
     }
     let day = OffsetDateTime::now_utc().date().to_string();
     let cache_path = output_dir.join(store.to_string()).join(day);
+    create_dir_all(&cache_path)?;
     let cache: FsCache = FsCache::new(cache_path.clone());
     match store {
         Store::Coles => coles::fetch(&cache, quick)?,
-        Store::Woolies => todo!("not implemented"),
+        Store::Woolies => woolies::fetch(&cache, quick)?,
     };
     compress(&cache_path)?;
     remove(&cache_path)?;

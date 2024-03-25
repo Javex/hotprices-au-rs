@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use strum::EnumIter;
 pub mod coles;
+pub mod woolies;
 
 #[derive(ValueEnum, Clone, Debug, Serialize, Deserialize, Eq, Hash, PartialEq, Copy, EnumIter)]
 pub enum Store {

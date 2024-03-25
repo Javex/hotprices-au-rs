@@ -76,6 +76,14 @@ impl ProductSnapshot {
         self.product_info.store
     }
 
+    pub fn unit(&self) -> Unit {
+        self.product_info.unit
+    }
+
+    pub fn quantity(&self) -> f64 {
+        self.product_info.quantity
+    }
+
     pub fn price(&self) -> Price {
         self.price_snapshot.price
     }

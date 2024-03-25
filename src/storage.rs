@@ -13,7 +13,7 @@ use tar::Archive;
 use time::Date;
 
 use crate::product::{ProductHistory, ProductSnapshot};
-use crate::stores::{coles, Store};
+use crate::stores::{coles, woolies, Store};
 
 pub fn compress(source: &PathBuf) -> anyhow::Result<()> {
     let mut file = source.clone();
@@ -72,7 +72,7 @@ pub fn load_daily_snapshot(
             let file = BufReader::new(file);
             match store {
                 Store::Coles => coles::product::load_from_legacy(file, day)?,
-                Store::Woolies => todo!("load_from_legacy for woolies"),
+                Store::Woolies => woolies::product::load_from_legacy(file, day)?,
             }
         } else {
             // non legacy format
@@ -86,7 +86,7 @@ pub fn load_daily_snapshot(
             let file = Archive::new(file);
             match store {
                 Store::Coles => coles::product::load_from_archive(file, day)?,
-                Store::Woolies => todo!("load_from_archive"),
+                Store::Woolies => woolies::product::load_from_archive(file, day)?,
             }
         };
         products.extend(store_products);

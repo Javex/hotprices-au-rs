@@ -75,3 +75,47 @@ pub fn parse_str_unit(size: &str) -> anyhow::Result<(f64, Unit)> {
 
     Ok((quantity, unit))
 }
+
+#[cfg(test)]
+mod test {
+
+    use super::{parse_str_unit, Unit};
+
+    #[test]
+    fn test_unit_from_size() {
+        // Grams
+        assert_eq!(parse_str_unit("150g").unwrap(), (150.0, Unit::Grams));
+        assert_eq!(parse_str_unit("1kg").unwrap(), (1000.0, Unit::Grams));
+        assert_eq!(parse_str_unit("50mg").unwrap(), (0.05, Unit::Grams));
+
+        // Millilitre
+        assert_eq!(parse_str_unit("10ml").unwrap(), (10.0, Unit::Millilitre));
+        assert_eq!(parse_str_unit("1l").unwrap(), (1000.0, Unit::Millilitre));
+
+        // Centimetre
+        assert_eq!(parse_str_unit("10cm").unwrap(), (10.0, Unit::Centimetre));
+        assert_eq!(parse_str_unit("1m").unwrap(), (100.0, Unit::Centimetre));
+        assert_eq!(
+            parse_str_unit("1 metre").unwrap(),
+            (100.0, Unit::Centimetre)
+        );
+
+        // Each
+        assert_eq!(parse_str_unit("5ea").unwrap(), (5.0, Unit::Each));
+        assert_eq!(parse_str_unit("5 each").unwrap(), (5.0, Unit::Each));
+        assert_eq!(parse_str_unit("10 pack").unwrap(), (10.0, Unit::Each));
+        assert_eq!(parse_str_unit("10pk").unwrap(), (10.0, Unit::Each));
+        assert_eq!(parse_str_unit("10 bunch").unwrap(), (10.0, Unit::Each));
+        assert_eq!(parse_str_unit("10 sheets").unwrap(), (10.0, Unit::Each));
+        assert_eq!(parse_str_unit("10 sachets").unwrap(), (10.0, Unit::Each));
+        assert_eq!(parse_str_unit("10 capsules").unwrap(), (10.0, Unit::Each));
+        assert_eq!(parse_str_unit("10 ss").unwrap(), (10.0, Unit::Each));
+        assert_eq!(parse_str_unit("10 set").unwrap(), (10.0, Unit::Each));
+        assert_eq!(parse_str_unit("10 pair").unwrap(), (10.0, Unit::Each));
+        assert_eq!(parse_str_unit("10 pairs").unwrap(), (10.0, Unit::Each));
+        assert_eq!(parse_str_unit("3 piece").unwrap(), (3.0, Unit::Each));
+        assert_eq!(parse_str_unit("500 tablets").unwrap(), (500.0, Unit::Each));
+        assert_eq!(parse_str_unit("12 rolls").unwrap(), (12.0, Unit::Each));
+        assert_eq!(parse_str_unit("2 dozen").unwrap(), (24.0, Unit::Each));
+    }
+}
