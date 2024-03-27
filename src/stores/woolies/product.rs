@@ -4,7 +4,6 @@ use serde::Deserialize;
 use std::fmt::Display;
 use std::io::Read;
 use std::result::Result as StdResult;
-use tar::Archive;
 use time::Date;
 
 use crate::errors::{Error, Result};
@@ -12,7 +11,7 @@ use crate::product::{Price, ProductInfo, ProductSnapshot};
 use crate::stores::Store;
 use crate::unit::{parse_str_unit, Unit};
 
-use super::category::CategoryResponse;
+use super::category::Category;
 
 // If more than 5% of conversions fail then it should be an error
 const CONVERSION_SUCCESS_THRESHOLD: f64 = 0.05;
@@ -48,7 +47,6 @@ impl BundleProduct {
         } else {
             self.get_quantity_and_unit(price)?
         };
-        // let (quantity, unit) = parse_str_unit(&self.package_size)?;
         let is_weighted = Some(false);
         let product_info = ProductInfo::new(
             self.stockcode,
@@ -91,8 +89,8 @@ impl BundleProduct {
         let quantity = (price / cup_price * std_quantity).round();
         if quantity < 100.0 {
             warn!("Low quantity of {quantity} during conversion of {self:?}");
-            return Err(Error::ProductConversion(format!(
-                "Low quantity for conversion"
+            return Err(Error::ProductConversion(String::from(
+                "Low quantity for conversion",
             )));
         }
         Ok((quantity, unit))
@@ -117,12 +115,6 @@ impl Bundle {
         };
         Ok(bundle)
     }
-}
-
-#[derive(Deserialize)]
-struct LegacyCategory {
-    #[serde(rename = "Products")]
-    products: Option<Vec<serde_json::Value>>,
 }
 
 struct ConversionMetrics {
@@ -151,14 +143,8 @@ impl Display for ConversionMetrics {
     }
 }
 
-pub fn load_from_legacy(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {
-    let conversion_results = BundleConversion::from_legacy_reader(file)?;
-    let success = conversion_results.validate_conversion(None, date)?;
-    Ok(success)
-}
-
-pub fn load_from_archive(archive: Archive<impl Read>, date: Date) -> Result<Vec<ProductSnapshot>> {
-    let conversion_results = BundleConversion::from_archive(archive)?;
+pub fn load_snapshot(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {
+    let conversion_results = BundleConversion::from_reader(file)?;
     let success = conversion_results.validate_conversion(None, date)?;
     Ok(success)
 }
@@ -171,28 +157,16 @@ struct BundleConversion {
 type ProductList = Vec<serde_json::Value>;
 
 impl BundleConversion {
-    fn from_legacy_reader(file: impl Read) -> Result<Self> {
-        let json_data: Vec<LegacyCategory> = serde_json::from_reader(file)?;
+    fn from_reader(file: impl Read) -> Result<Self> {
+        let json_data: Vec<Category> = serde_json::from_reader(file)?;
         let json_data: Vec<ProductList> = json_data
             .into_iter()
-            .map(|c| c.products.unwrap_or_default())
+            .filter(|c| !c.is_filtered())
+            .map(|c| c.into_products())
             .collect();
         let conversion_results = Self::full_product_list(json_data);
 
         Ok(conversion_results)
-    }
-
-    fn from_archive(mut archive: Archive<impl Read>) -> Result<Self> {
-        let json_data: Vec<ProductList> = archive
-            .entries()?
-            .filter_map_ok(|entry| match entry.size() {
-                0 => None,
-                _ => Some(CategoryResponse::from_reader(entry).map(|r| r.bundles)),
-            })
-            .flatten()
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        let conversion_result_all = Self::full_product_list(json_data);
-        Ok(conversion_result_all)
     }
 
     fn full_product_list(json_data: Vec<ProductList>) -> Self {

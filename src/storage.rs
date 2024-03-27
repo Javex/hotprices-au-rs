@@ -41,6 +41,26 @@ pub fn remove(source: &Path) -> io::Result<()> {
     fs::remove_dir_all(source)
 }
 
+fn get_snapshot_path(output_dir: &Path, store: Store, day: Date) -> PathBuf {
+    let mut path = PathBuf::from(output_dir);
+    path.push(store.to_string());
+    path.push(format!("{day}.json.gz"));
+    path
+}
+
+pub fn save_fetch_data(
+    data: String,
+    output_dir: &Path,
+    store: Store,
+    day: Date,
+) -> anyhow::Result<()> {
+    let file = get_snapshot_path(output_dir, store, day);
+    let file = File::create(file)?;
+    let mut file = GzEncoder::new(file, Compression::default());
+    file.write_all(data.as_bytes())?;
+    Ok(())
+}
+
 pub fn load_history(output_dir: &Path) -> anyhow::Result<Vec<ProductHistory>> {
     let file = output_dir.join("latest-canonical.json.gz");
     let file = File::open(file)?;
@@ -72,13 +92,11 @@ pub fn load_daily_snapshot(
             let file = BufReader::new(file);
             match store {
                 Store::Coles => coles::product::load_from_legacy(file, day)?,
-                Store::Woolies => woolies::product::load_from_legacy(file, day)?,
+                Store::Woolies => woolies::product::load_snapshot(file, day)?,
             }
         } else {
             // non legacy format
-            let file = output_dir
-                .join(store.to_string())
-                .join(format!("{day}.tar.gz"));
+            let file = get_snapshot_path(output_dir, store, day);
             debug!("Loading {}", file.to_str().expect("should be valid str"));
             let file = File::open(file)?;
             let file = GzDecoder::new(file);
@@ -86,7 +104,7 @@ pub fn load_daily_snapshot(
             let file = Archive::new(file);
             match store {
                 Store::Coles => coles::product::load_from_archive(file, day)?,
-                Store::Woolies => woolies::product::load_from_archive(file, day)?,
+                Store::Woolies => panic!("Not supported for woolies!"),
             }
         };
         products.extend(store_products);

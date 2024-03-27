@@ -1,5 +1,5 @@
 use crate::cache::FsCache;
-use crate::storage::{compress, remove};
+use crate::storage::{compress, remove, save_fetch_data};
 use crate::stores::{coles, woolies, Store};
 use std::fs::create_dir_all;
 use std::path::PathBuf;
@@ -15,15 +15,20 @@ pub fn do_sync(
     if print_save_path || skip_existing {
         todo!("Not implemented yet");
     }
-    let day = OffsetDateTime::now_utc().date().to_string();
-    let cache_path = output_dir.join(store.to_string()).join(day);
+    let day = OffsetDateTime::now_utc().date();
+    let cache_path = output_dir.join(store.to_string()).join(day.to_string());
     create_dir_all(&cache_path)?;
     let cache: FsCache = FsCache::new(cache_path.clone());
     match store {
-        Store::Coles => coles::fetch(&cache, quick)?,
-        Store::Woolies => woolies::fetch(&cache, quick)?,
+        Store::Coles => {
+            coles::fetch(&cache, quick)?;
+            compress(&cache_path)?;
+        }
+        Store::Woolies => {
+            let fetch_data = woolies::fetch(&cache, quick)?;
+            save_fetch_data(fetch_data, &output_dir, Store::Woolies, day)?;
+        }
     };
-    compress(&cache_path)?;
     remove(&cache_path)?;
     Ok(())
 }

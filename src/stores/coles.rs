@@ -90,7 +90,7 @@ fn get_categories<'a>(
     Ok(categories)
 }
 
-pub fn fetch(cache: &FsCache, quick: bool) -> anyhow::Result<()> {
+pub fn fetch(cache: &FsCache, quick: bool) -> anyhow::Result<String> {
     log::info!("Starting fetch for coles");
     let client = ColesHttpClient::new()?;
     let client = get_versioned_client(&client)?;
@@ -117,7 +117,7 @@ pub fn fetch(cache: &FsCache, quick: bool) -> anyhow::Result<()> {
             break;
         }
     }
-    Ok(())
+    Ok(String::from(""))
 }
 
 #[cfg(test)]
