@@ -302,7 +302,7 @@ mod test {
         assert_eq!(product.description, "some long product description");
         assert_eq!(product.price, Some(12.02));
         assert_eq!(product.package_size, "100g");
-        assert_eq!(product.cup_price, 2.07);
+        assert_eq!(product.cup_price, Some(2.07));
         assert_eq!(product.cup_measure, "100G");
     }
 
@@ -356,8 +356,9 @@ mod test {
                 description: String::from("product description"),
                 price: Some(1.0),
                 package_size: String::from("Each"),
-                cup_price: 1.0,
+                cup_price: Some(1.0),
                 cup_measure: String::from("100g"),
+                unit: String::from("Each"),
             }
         }
     }
@@ -365,8 +366,9 @@ mod test {
     #[test]
     fn test_low_quantity_error() {
         let product = BundleProduct {
-            cup_price: 1.0,
+            cup_price: Some(1.0),
             cup_measure: String::from("1g"),
+            unit: String::from("G"),
             ..Default::default()
         };
         let err = product.get_quantity_and_unit(1.0).unwrap_err();
