@@ -1,5 +1,6 @@
 [
   {
+    "seoToken": "category-slug",
     "Products": [
       {
         "_type": "PRODUCT",
@@ -10,7 +11,7 @@
         "description": "BRAND NAME PRODUCT NAME 150G",
         "size": "150g",
         "pricing": {
-          "now": 6.7,
+          "now": 7.8,
           "unit": {
             "isWeighted": false
           }

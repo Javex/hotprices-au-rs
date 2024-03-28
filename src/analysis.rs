@@ -139,7 +139,7 @@ mod test_do_analysis {
         copy_compressed(&src, &dst);
     }
 
-    fn setup_snapshot_legacy(resource: &str, output_dir: &Path, day: Date, store: Store) {
+    fn setup_snapshot(resource: &str, output_dir: &Path, day: Date, store: Store) {
         let src = PathBuf::from(format!("resources/test/{resource}"));
         let dst_dir = output_dir.join(store.to_string());
         create_dir_all(&dst_dir).unwrap();
@@ -171,8 +171,8 @@ mod test_do_analysis {
         setup_latest_canonical("one-product.json", output_dir.path());
         let data_dir = tempdir().unwrap();
         let day = Date::from_calendar_date(2024, Month::January, 2).unwrap();
-        setup_snapshot_legacy(
-            "legacy/coles/one-product.json",
+        setup_snapshot(
+            "snapshot/coles/one-product.json",
             output_dir.path(),
             day,
             Store::Coles,
@@ -220,14 +220,14 @@ mod test_do_analysis {
         let output_dir = tempdir().unwrap();
         let data_dir = tempdir().unwrap();
         let store = Store::Coles;
-        setup_snapshot_legacy(
-            "legacy/coles/one-product.json",
+        setup_snapshot(
+            "snapshot/coles/one-product.json",
             output_dir.path(),
             Date::from_calendar_date(2024, Month::January, 1).unwrap(),
             store,
         );
-        setup_snapshot_legacy(
-            "legacy/coles/one-product-new-price.json",
+        setup_snapshot(
+            "snapshot/coles/one-product-new-price.json",
             output_dir.path(),
             Date::from_calendar_date(2024, Month::January, 2).unwrap(),
             store,

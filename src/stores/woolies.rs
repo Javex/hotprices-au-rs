@@ -35,8 +35,11 @@ pub fn fetch(cache: &FsCache, quick: bool) -> anyhow::Result<String> {
         .collect();
     debug!("Loaded categories for Woolies, have {}", categories.len());
     for category in categories.iter_mut() {
-        let product_count = category.fetch_products(&client, cache)?;
+        let product_count = category.fetch_products(&client, cache, quick)?;
         debug!("Got category {} with {} products", category, product_count);
+        if quick {
+            break;
+        }
     }
     Ok(serde_json::to_string(&categories)?)
 }

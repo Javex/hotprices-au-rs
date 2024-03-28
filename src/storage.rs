@@ -9,32 +9,10 @@ use std::{
     path::Path,
 };
 use strum::IntoEnumIterator;
-use tar::Archive;
 use time::Date;
 
 use crate::product::{ProductHistory, ProductSnapshot};
 use crate::stores::{coles, woolies, Store};
-
-pub fn compress(source: &PathBuf) -> anyhow::Result<()> {
-    let mut file = source.clone();
-    file.set_extension("tar.gz");
-    info!(
-        "Saving results as {}",
-        file.to_str().expect("File should be valid UTF-8 str")
-    );
-    let file = File::create(file)?;
-    let file = GzEncoder::new(file, Compression::default());
-    let mut archive = tar::Builder::new(file);
-    // saves everything relative to source
-    archive.append_dir_all(
-        source
-            .file_name()
-            .ok_or(anyhow::Error::msg("Bad file name"))?,
-        source,
-    )?;
-    archive.finish()?;
-    Ok(())
-}
 
 pub fn remove(source: &Path) -> io::Result<()> {
     info!("Removing cache directory {}", source.to_str().unwrap());
@@ -84,28 +62,13 @@ pub fn load_daily_snapshot(
         let file = output_dir
             .join(store.to_string())
             .join(format!("{day}.json.gz"));
-        let store_products = if file.exists() {
-            // legacy file
-            debug!("Loading {}", file.to_str().expect("should be valid str"));
-            let file = File::open(file)?;
-            let file = GzDecoder::new(file);
-            let file = BufReader::new(file);
-            match store {
-                Store::Coles => coles::product::load_from_legacy(file, day)?,
-                Store::Woolies => woolies::product::load_snapshot(file, day)?,
-            }
-        } else {
-            // non legacy format
-            let file = get_snapshot_path(output_dir, store, day);
-            debug!("Loading {}", file.to_str().expect("should be valid str"));
-            let file = File::open(file)?;
-            let file = GzDecoder::new(file);
-            let file = BufReader::new(file);
-            let file = Archive::new(file);
-            match store {
-                Store::Coles => coles::product::load_from_archive(file, day)?,
-                Store::Woolies => panic!("Not supported for woolies!"),
-            }
+        debug!("Loading {}", file.to_str().expect("should be valid str"));
+        let file = File::open(file)?;
+        let file = GzDecoder::new(file);
+        let file = BufReader::new(file);
+        let store_products = match store {
+            Store::Coles => coles::product::load_snapshot(file, day)?,
+            Store::Woolies => woolies::product::load_snapshot(file, day)?,
         };
         products.extend(store_products);
     }

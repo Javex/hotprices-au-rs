@@ -3,17 +3,16 @@ mod http;
 pub mod product;
 
 use crate::cache::FsCache;
-use crate::errors::Error;
-use crate::stores::coles::product::SearchResult;
+use crate::conversion::Category as CategoryTrait;
+use crate::stores::coles::category::Category;
+
 use anyhow::bail;
 #[double]
 use http::ColesHttpClient;
-use log::{debug, info};
+use log::debug;
 use mockall_double::double;
 use scraper::Selector;
 use serde::Deserialize;
-
-const SKIP_CATEGORIES: [&str; 2] = ["down-down", "back-to-school"];
 
 #[derive(Deserialize)]
 struct RuntimeConfig {
@@ -30,30 +29,9 @@ struct NextData {
 }
 
 #[derive(Deserialize)]
-struct Categories {
+struct CategoriesResponse {
     #[serde(rename = "catalogGroupView")]
-    catalog_group_view: Vec<CategoryFields>,
-}
-
-impl Categories {
-    fn get_items<'a>(
-        &self,
-        client: &'a ColesHttpClient,
-        cache: &'a FsCache,
-    ) -> Vec<category::Category<'a>> {
-        self.catalog_group_view
-            .iter()
-            .map(|slug| slug.seo_token.clone())
-            .filter(|slug| !SKIP_CATEGORIES.contains(&slug.as_str()))
-            .map(|slug| category::Category::new(&slug, client, cache))
-            .collect()
-    }
-}
-
-#[derive(Deserialize)]
-struct CategoryFields {
-    #[serde(rename = "seoToken")]
-    seo_token: String,
+    catalog_group_view: Vec<Category>,
 }
 
 fn get_setup_data(client: &ColesHttpClient) -> anyhow::Result<(String, String)> {
@@ -79,14 +57,9 @@ fn get_versioned_client(client: &ColesHttpClient) -> anyhow::Result<ColesHttpCli
     Ok(client)
 }
 
-fn get_categories<'a>(
-    cache: &'a FsCache,
-    client: &'a ColesHttpClient,
-) -> anyhow::Result<Vec<category::Category<'a>>> {
+fn get_categories(client: &ColesHttpClient) -> anyhow::Result<CategoriesResponse> {
     let resp = client.get_categories()?;
-    let categories: Categories = serde_json::from_str(&resp)?;
-    let categories = categories.get_items(client, cache);
-
+    let categories: CategoriesResponse = serde_json::from_str(&resp)?;
     Ok(categories)
 }
 
@@ -94,35 +67,27 @@ pub fn fetch(cache: &FsCache, quick: bool) -> anyhow::Result<String> {
     log::info!("Starting fetch for coles");
     let client = ColesHttpClient::new()?;
     let client = get_versioned_client(&client)?;
-    let categories = get_categories(cache, &client)?;
+    let categories = get_categories(&client)?;
+    let mut categories: Vec<_> = categories
+        .catalog_group_view
+        .into_iter()
+        .filter(|c| !c.is_filtered())
+        .collect();
     debug!("Loaded categories for Coles, have {}", categories.len());
-    for category in categories {
-        for prod in category {
-            let prod = prod.unwrap();
-            let _prod: SearchResult = match SearchResult::from_json_value(prod) {
-                Ok(product) => product,
-                Err(error) => {
-                    match error {
-                        // just skip ads silently
-                        Error::AdResult => continue,
-                        _ => {
-                            info!("Failed to convert json value to search result, skipping. Error was {}", error);
-                            continue;
-                        }
-                    }
-                }
-            };
-        }
+    for category in categories.iter_mut() {
+        let product_count = category.fetch_products(&client, cache, quick)?;
+        debug!("Got category {} with {} products", category, product_count);
         if quick {
             break;
         }
     }
-    Ok(String::from(""))
+    Ok(serde_json::to_string(&categories)?)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use serde_json::json;
     use std::fs;
     use std::path::PathBuf;
 
@@ -143,5 +108,25 @@ mod test {
         let (api_key, version) = get_setup_data(&client).expect("Expected success");
         assert_eq!(version, "20240101.01_v1.01.0");
         assert_eq!(api_key, "testsubkey");
+    }
+
+    #[test]
+    fn test_get_categories() {
+        let mut client = ColesHttpClient::default();
+        client.expect_get_categories().returning(|| {
+            Ok(json!({
+                "catalogGroupView": [
+                    {
+                        "seoToken": "category-slug",
+                        "someExtraField": "Extra value"
+                    }
+                ]
+            })
+            .to_string())
+        });
+
+        let categories = get_categories(&client).unwrap();
+        let categories = categories.catalog_group_view;
+        assert_eq!(categories.len(), 1);
     }
 }

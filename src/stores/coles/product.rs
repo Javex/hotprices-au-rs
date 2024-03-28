@@ -1,23 +1,17 @@
+use crate::conversion::{Conversion, Product};
 use crate::errors::{Error, Result};
 use crate::product::{price_serde, Price};
 use crate::product::{ProductInfo, ProductSnapshot};
+use crate::stores::coles::category::Category;
 use crate::stores::Store;
 use crate::unit::{parse_str_unit, Unit};
 use std::fmt::Display;
-use std::result::Result as StdResult;
 
 use anyhow::anyhow;
-use itertools::{Either, Itertools};
-use log::{error, info};
 use serde::Deserialize;
 use std::io::Read;
-use tar::Archive;
 use time::Date;
 
-use super::category::SearchResults;
-
-// If more than 5% of conversions fail then it should be an error
-const CONVERSION_SUCCESS_THRESHOLD: f64 = 0.05;
 const IGNORED_RESULT_TYPES: [&str; 2] = ["SINGLE_TILE", "CONTENT_ASSOCIATION"];
 
 #[derive(Deserialize, Debug)]
@@ -70,7 +64,9 @@ impl SearchResult {
 
         Ok(search_result)
     }
+}
 
+impl Product for SearchResult {
     fn try_into_snapshot_and_date(self, date: Date) -> Result<ProductSnapshot> {
         let pricing = self.pricing.as_ref().ok_or(Error::ProductConversion(
             "missing field pricing".to_string(),
@@ -103,12 +99,6 @@ fn get_quantity_and_unit(item: &SearchResult) -> Result<(f64, Unit)> {
     Ok((parsed_quantity, unit))
 }
 
-#[derive(Deserialize)]
-struct LegacyCategory {
-    #[serde(rename = "Products")]
-    products: Option<Vec<serde_json::Value>>,
-}
-
 struct ConversionMetrics {
     success: usize,
     fail_search_result: usize,
@@ -135,118 +125,9 @@ impl Display for ConversionMetrics {
     }
 }
 
-pub fn load_from_legacy(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {
-    let conversion_results = SearchResultConversion::from_legacy_reader(file)?;
-    let success = conversion_results.validate_conversion(None, date)?;
+pub fn load_snapshot(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {
+    let success = Conversion::from_reader::<Category>(file, date)?;
     Ok(success)
-}
-
-pub fn load_from_archive(archive: Archive<impl Read>, date: Date) -> Result<Vec<ProductSnapshot>> {
-    let conversion_results = SearchResultConversion::from_archive(archive)?;
-    let success = conversion_results.validate_conversion(None, date)?;
-    Ok(success)
-}
-
-struct SearchResultConversion {
-    success: Vec<SearchResult>,
-    failure: Vec<Error>,
-}
-
-type ProductList = Vec<serde_json::Value>;
-
-impl SearchResultConversion {
-    fn from_legacy_reader(file: impl Read) -> Result<Self> {
-        let json_data: Vec<LegacyCategory> = serde_json::from_reader(file)?;
-        let json_data: Vec<ProductList> = json_data
-            .into_iter()
-            .map(|c| c.products.unwrap_or_default())
-            .collect();
-        let conversion_results = Self::full_product_list(json_data);
-
-        Ok(conversion_results)
-    }
-
-    fn from_archive(mut archive: Archive<impl Read>) -> Result<Self> {
-        let json_data: Vec<ProductList> = archive
-            .entries()?
-            .filter_map_ok(|entry| match entry.size() {
-                0 => None,
-                _ => Some(SearchResults::from_reader(entry).map(|r| r.results)),
-            })
-            .flatten()
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        let conversion_result_all = Self::full_product_list(json_data);
-        Ok(conversion_result_all)
-    }
-
-    fn full_product_list(json_data: Vec<ProductList>) -> Self {
-        let data: Vec<Self> = json_data.into_iter().map(Self::from_json_vec).collect();
-
-        let mut conversion_results = Self {
-            success: Vec::new(),
-            failure: Vec::new(),
-        };
-        for item in data {
-            conversion_results.success.extend(item.success);
-            conversion_results.failure.extend(item.failure);
-        }
-        conversion_results
-    }
-
-    fn from_json_vec(products: Vec<serde_json::Value>) -> Self {
-        let (success, failure): (Vec<_>, Vec<_>) =
-            products
-                .into_iter()
-                .partition_map(|v| match SearchResult::from_json_value(v) {
-                    Ok(v) => Either::Left(v),
-                    Err(v) => Either::Right(v),
-                });
-        // remove ad results, not "real" errors
-        let failure = failure
-            .into_iter()
-            .filter(|e| !matches!(e, Error::AdResult))
-            .collect();
-        SearchResultConversion { success, failure }
-    }
-
-    pub fn validate_conversion(
-        self,
-        success_threshold: Option<f64>,
-        date: Date,
-    ) -> Result<Vec<ProductSnapshot>> {
-        let legacy_success = self.success.len();
-        let legacy_failure = self.failure.len();
-        let products: Vec<StdResult<ProductSnapshot, Error>> = self
-            .success
-            .into_iter()
-            .map(|s| s.try_into_snapshot_and_date(date))
-            .collect();
-        let (success, failure): (Vec<_>, Vec<_>) =
-            products.into_iter().partition_map(|v| match v {
-                Ok(v) => Either::Left(v),
-                Err(v) => Either::Right(v),
-            });
-        let metrics = ConversionMetrics {
-            success: legacy_success,
-            fail_search_result: legacy_failure,
-            fail_product: failure.len(),
-        };
-
-        // Use default if none given
-        let success_threshold = success_threshold.unwrap_or(CONVERSION_SUCCESS_THRESHOLD);
-
-        if metrics.failure_rate() > success_threshold {
-            error!(
-                "Conversion exceeds threshold of {}: {}",
-                success_threshold, metrics
-            );
-            return Err(Error::ProductConversion(format!(
-                "Error threshold of {success_threshold} for conversion exceeded: {metrics}",
-            )));
-        }
-        info!("Conversion succeeded: {}", metrics);
-        Ok(success)
-    }
 }
 
 #[cfg(test)]

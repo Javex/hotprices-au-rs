@@ -1,11 +1,104 @@
-use std::io::Read;
+use std::{collections::HashMap, fmt::Display, io::Read};
 
 #[double]
 use super::http::ColesHttpClient;
-use crate::cache::FsCache;
+use super::product::SearchResult;
+use crate::{cache::FsCache, conversion, errors::Error};
+use itertools::{Either, Itertools};
 use log::debug;
 use mockall_double::double;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+
+const SKIP_CATEGORIES: [&str; 2] = ["down-down", "back-to-school"];
+
+#[derive(Deserialize, Serialize)]
+pub struct Category {
+    #[serde(rename = "seoToken")]
+    pub seo_token: String,
+
+    // This field is missing when getting a response for the category list, it's a custom field
+    // that will hold products as they are getting fetched
+    #[serde(default, rename = "Products")]
+    products: Vec<serde_json::Value>,
+
+    // Capture any values not explicitly specified so they survive serialization/deserialization
+    #[serde(flatten)]
+    pub extra: HashMap<String, serde_json::Value>,
+}
+
+impl Category {
+    fn get_category(
+        &self,
+        client: &ColesHttpClient,
+        cache: &FsCache,
+        page: i32,
+    ) -> anyhow::Result<SearchResults> {
+        let path = format!("categories/{}/page_{}.json", self.seo_token, page);
+        let fetch = &|| client.get_category(&self.seo_token, page);
+        let resp = cache.get_or_fetch(path, fetch)?;
+        let json_data: CategoryJson = serde_json::from_str(&resp)?;
+        Ok(json_data.page_props.search_results)
+    }
+
+    pub fn fetch_products(
+        &mut self,
+        client: &ColesHttpClient,
+        cache: &FsCache,
+        quick: bool,
+    ) -> anyhow::Result<usize> {
+        let mut products = Vec::new();
+        let mut page = 1;
+        loop {
+            let category_response = self.get_category(client, cache, page)?;
+            let new_products = category_response.results;
+            page += 1;
+            debug!(
+                "New page with results loaded. Product count: {}, products on this page: {}, expected total: {}",
+                products.len(),
+                new_products.len(),
+                category_response.no_of_results,
+            );
+            products.extend(new_products);
+
+            if products.len() as i64 >= category_response.no_of_results || quick {
+                break;
+            }
+        }
+        self.products = products;
+        Ok(self.products.len())
+    }
+}
+
+impl conversion::Category<SearchResult> for Category {
+    fn is_filtered(&self) -> bool {
+        if SKIP_CATEGORIES.contains(&self.seo_token.as_str()) {
+            return true;
+        }
+        false
+    }
+
+    fn into_products(self) -> (Vec<SearchResult>, Vec<Error>) {
+        let (success, failure): (Vec<_>, Vec<_>) =
+            self.products
+                .into_iter()
+                .partition_map(|v| match SearchResult::from_json_value(v) {
+                    Ok(v) => Either::Left(v),
+                    Err(v) => Either::Right(v),
+                });
+
+        let failure = failure
+            .into_iter()
+            .filter(|e| !matches!(e, Error::AdResult))
+            .collect();
+        (success, failure)
+    }
+}
+
+impl Display for Category {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.seo_token)
+    }
+}
 
 #[derive(Deserialize)]
 pub struct SearchResults {
@@ -34,68 +127,14 @@ pub struct CategoryJson {
     page_props: PageProps,
 }
 
-pub struct Category<'a> {
-    client: &'a ColesHttpClient,
-    slug: String,
-    buf: Vec<serde_json::Value>,
-    page: i32,
-    product_count: i64,
-    finished: bool,
-    cache: &'a FsCache,
-}
-
-impl<'a> Category<'a> {
-    pub fn new(cat_slug: &str, client: &'a ColesHttpClient, cache: &'a FsCache) -> Category<'a> {
-        Category {
-            client,
-            slug: cat_slug.to_string(),
-            buf: Vec::new(),
-            page: 1,
-            product_count: 0,
-            finished: false,
-            cache,
-        }
-    }
-    fn get_category(&self, page: i32) -> anyhow::Result<SearchResults> {
-        let path = format!("categories/{}/page_{}.json", self.slug, page);
-        let fetch = &|| self.client.get_category(&self.slug, page);
-        let resp = self.cache.get_or_fetch(path, fetch)?;
-        let json_data: CategoryJson = serde_json::from_str(&resp)?;
-        Ok(json_data.page_props.search_results)
-    }
-}
-
-impl<'a> Iterator for Category<'a> {
-    type Item = anyhow::Result<serde_json::Value>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.buf.is_empty() && !self.finished {
-            let search_results = match self.get_category(self.page) {
-                Ok(v) => v,
-                Err(e) => return Some(Err(e)),
-            };
-            self.buf = search_results.results;
-            self.product_count += self.buf.len() as i64;
-            self.page += 1;
-            if self.product_count >= search_results.no_of_results {
-                self.finished = true;
-            }
-            debug!(
-                "New page with results loaded in iterator. Product count: {}, finished: {}, buffer size: {}",
-                self.product_count,
-                self.finished,
-                self.buf.len()
-            );
-        }
-
-        self.buf.pop().map(Ok)
-    }
-}
-
 #[cfg(test)]
 mod test {
+    use crate::conversion::Category as CategoryTrait;
+    use crate::stores::coles::get_categories;
+
     use super::super::test::load_file;
     use super::*;
+    use serde_json::json;
     #[test]
     fn test_load_empty_search_results() {
         let file = load_file("empty_search_results.json");
@@ -104,5 +143,44 @@ mod test {
         assert_eq!(search_results.no_of_results, 749);
         let results = search_results.results;
         assert_eq!(results.len(), 0);
+    }
+
+    #[test]
+    fn test_get_categories() {
+        let mut client = ColesHttpClient::default();
+        client.expect_get_categories().returning(|| {
+            Ok(json!({
+                "catalogGroupView": [
+                    {
+                        "seoToken": "category-slug",
+                        "someExtraField": "Extra value"
+                    }
+                ]
+            })
+            .to_string())
+        });
+
+        let categories = get_categories(&client).unwrap();
+        let mut categories = categories.catalog_group_view;
+        assert_eq!(categories.len(), 1);
+        let category = categories.pop().unwrap();
+        assert!(category.products.is_empty());
+        let cat_json = serde_json::to_value(category).unwrap();
+        assert_eq!(cat_json["someExtraField"], "Extra value");
+    }
+
+    #[test]
+    fn test_into_products_ad_result_is_removed() {
+        let category = Category {
+            seo_token: String::from("slug"),
+            products: vec![json!({
+                "_type": "SINGLE_TILE",
+                "adId": "ad",
+            })],
+            extra: HashMap::new(),
+        };
+        let (success, failure) = category.into_products();
+        assert!(success.is_empty());
+        assert!(failure.is_empty());
     }
 }
