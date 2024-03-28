@@ -2,15 +2,12 @@ use std::fs::{create_dir_all, read_to_string, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
 
-use mockall::automock;
-
 pub(crate) type FetchCallback<'a> = &'a dyn Fn() -> anyhow::Result<String>;
 
 pub(crate) struct FsCache {
     path: PathBuf,
 }
 
-#[automock]
 impl FsCache {
     pub(crate) fn new(path: PathBuf) -> FsCache {
         FsCache { path }

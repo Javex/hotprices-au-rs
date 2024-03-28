@@ -14,7 +14,6 @@ flate2 = "1.0.28"
 itertools = "0.12.1"
 lazy_static = "1.4.0"
 log = "0.4.21"
-mockall = "0.12.1"
 mockall_double = "0.3.1"
 # nonempty = { version = "0.10.0", features = ["serde"] }
 # Workaround since NonEmpty doesn't have sort yet
@@ -29,3 +28,6 @@ tempfile = "3.10.1"
 thiserror = "1.0.58"
 time = "0.3.34"
 ureq = { version = "2.9.6", features = ["cookies", "json"] }
+
+[dev-dependencies]
+mockall = "0.12.1"

@@ -3,6 +3,7 @@ use std::{thread, time::Duration};
 use anyhow::anyhow;
 use cookie_store::CookieStore;
 use log::{error, info};
+#[cfg(test)]
 use mockall::automock;
 
 const BASE_URL: &str = "https://www.coles.com.au";
@@ -32,7 +33,7 @@ pub(crate) struct ColesHttpClient {
     retry_policy: RetryPolicy,
 }
 
-#[automock]
+#[cfg_attr(test, automock)]
 #[allow(dead_code)]
 impl ColesHttpClient {
     pub(crate) fn new() -> anyhow::Result<Self> {

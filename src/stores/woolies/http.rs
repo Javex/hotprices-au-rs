@@ -2,6 +2,7 @@ use std::{thread, time::Duration};
 
 use cookie_store::CookieStore;
 use log::{error, info};
+#[cfg(test)]
 use mockall::automock;
 
 const BASE_URL: &str = "https://www.woolworths.com.au";
@@ -29,7 +30,7 @@ pub(crate) struct WooliesHttpClient {
     retry_policy: RetryPolicy,
 }
 
-#[automock]
+#[cfg_attr(test, automock)]
 #[allow(dead_code)]
 impl WooliesHttpClient {
     pub(crate) fn new() -> Self {
