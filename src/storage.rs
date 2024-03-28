@@ -19,7 +19,7 @@ pub(crate) fn remove(source: &Path) -> io::Result<()> {
     fs::remove_dir_all(source)
 }
 
-fn get_snapshot_path(output_dir: &Path, store: Store, day: Date) -> PathBuf {
+pub(crate) fn get_snapshot_path(output_dir: &Path, store: Store, day: Date) -> PathBuf {
     let mut path = PathBuf::from(output_dir);
     path.push(store.to_string());
     path.push(format!("{day}.json.gz"));

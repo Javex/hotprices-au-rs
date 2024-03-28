@@ -1,5 +1,5 @@
 use crate::cache::FsCache;
-use crate::storage::{remove, save_fetch_data};
+use crate::storage::{get_snapshot_path, remove, save_fetch_data};
 use crate::stores::{coles, woolies, Store};
 use std::fs::create_dir_all;
 use std::path::PathBuf;
@@ -12,10 +12,17 @@ pub fn do_sync(
     skip_existing: bool,
     output_dir: PathBuf,
 ) -> anyhow::Result<()> {
-    if print_save_path || skip_existing {
+    if skip_existing {
         todo!("Not implemented yet");
     }
     let day = OffsetDateTime::now_utc().date();
+    if print_save_path {
+        print!(
+            "{}",
+            get_snapshot_path(&output_dir, store, day).to_str().unwrap()
+        );
+        return Ok(());
+    }
     let cache_path = output_dir.join(store.to_string()).join(day.to_string());
     create_dir_all(&cache_path)?;
     let cache: FsCache = FsCache::new(cache_path.clone());
