@@ -1,20 +1,16 @@
-use itertools::{Either, Itertools};
-use log::{debug, error, info, warn};
+use log::{debug, warn};
 use serde::Deserialize;
 use std::fmt::Display;
 use std::io::Read;
-use std::result::Result as StdResult;
 use time::Date;
 
+use crate::conversion::{Conversion, Product};
 use crate::errors::{Error, Result};
 use crate::product::{Price, ProductInfo, ProductSnapshot};
 use crate::stores::Store;
 use crate::unit::{parse_str_unit, Unit};
 
 use super::category::Category;
-
-// If more than 5% of conversions fail then it should be an error
-const CONVERSION_SUCCESS_THRESHOLD: f64 = 0.05;
 
 #[derive(Deserialize, Debug)]
 pub struct BundleProduct {
@@ -37,29 +33,6 @@ pub struct BundleProduct {
 }
 
 impl BundleProduct {
-    fn try_into_snapshot_and_date(self, date: Date) -> Result<ProductSnapshot> {
-        let price = self
-            .price
-            .ok_or_else(|| Error::ProductConversion(format!("Missing price on {}", self.name)))?;
-
-        let (quantity, unit) = if self.cup_measure == "1EA" {
-            (1.0, Unit::Each)
-        } else {
-            self.get_quantity_and_unit(price)?
-        };
-        let is_weighted = Some(false);
-        let product_info = ProductInfo::new(
-            self.stockcode,
-            self.name,
-            self.description,
-            is_weighted,
-            unit,
-            quantity,
-            Store::Woolies,
-        );
-        Ok(ProductSnapshot::new(product_info, Price::from(price), date))
-    }
-
     fn get_quantity_and_unit(&self, price: f64) -> Result<(f64, Unit)> {
         if let Ok((q, u)) = parse_str_unit(&self.package_size) {
             return Ok((q, u));
@@ -97,15 +70,40 @@ impl BundleProduct {
     }
 }
 
+impl Product for BundleProduct {
+    fn try_into_snapshot_and_date(self, date: Date) -> Result<ProductSnapshot> {
+        let price = self
+            .price
+            .ok_or_else(|| Error::ProductConversion(format!("Missing price on {}", self.name)))?;
+
+        let (quantity, unit) = if self.cup_measure == "1EA" {
+            (1.0, Unit::Each)
+        } else {
+            self.get_quantity_and_unit(price)?
+        };
+        // let (quantity, unit) = parse_str_unit(&self.package_size)?;
+        let is_weighted = Some(false);
+        let product_info = ProductInfo::new(
+            self.stockcode,
+            self.name,
+            self.description,
+            is_weighted,
+            unit,
+            quantity,
+            Store::Woolies,
+        );
+        Ok(ProductSnapshot::new(product_info, Price::from(price), date))
+    }
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Bundle {
     #[serde(rename = "Products")]
-    products: Vec<BundleProduct>,
+    pub products: Vec<BundleProduct>,
 }
 
 impl Bundle {
     pub fn from_json_value(value: serde_json::Value) -> Result<Bundle> {
-        // let bundle = serde_json::from_value(value)?;
         let bundle = match serde_json::from_value(value.clone()) {
             Ok(b) => b,
             Err(e) => {
@@ -144,104 +142,8 @@ impl Display for ConversionMetrics {
 }
 
 pub fn load_snapshot(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {
-    let conversion_results = BundleConversion::from_reader(file)?;
-    let success = conversion_results.validate_conversion(None, date)?;
+    let success = Conversion::<BundleProduct>::from_reader::<Category>(file, date)?;
     Ok(success)
-}
-
-struct BundleConversion {
-    success: Vec<BundleProduct>,
-    failure: Vec<Error>,
-}
-
-type ProductList = Vec<serde_json::Value>;
-
-impl BundleConversion {
-    fn from_reader(file: impl Read) -> Result<Self> {
-        let json_data: Vec<Category> = serde_json::from_reader(file)?;
-        let json_data: Vec<ProductList> = json_data
-            .into_iter()
-            .filter(|c| !c.is_filtered())
-            .map(|c| c.into_products())
-            .collect();
-        let conversion_results = Self::full_product_list(json_data);
-
-        Ok(conversion_results)
-    }
-
-    fn full_product_list(json_data: Vec<ProductList>) -> Self {
-        let data: Vec<Self> = json_data.into_iter().map(Self::from_json_vec).collect();
-
-        let mut conversion_results = Self {
-            success: Vec::new(),
-            failure: Vec::new(),
-        };
-        for item in data {
-            conversion_results.success.extend(item.success);
-            conversion_results.failure.extend(item.failure);
-        }
-        conversion_results
-    }
-
-    fn from_json_vec(products: Vec<serde_json::Value>) -> Self {
-        let (success, failure): (Vec<_>, Vec<_>) =
-            products
-                .into_iter()
-                .partition_map(|v| match Bundle::from_json_value(v) {
-                    Ok(v) => match v.products.len() {
-                        1 => Either::Left(v.products.into_iter().next().unwrap()),
-                        _ => Either::Right(Error::ProductConversion(format!(
-                            "Invalid number of products in bundle: {}",
-                            v.products.len()
-                        ))),
-                    },
-                    Err(v) => Either::Right(v),
-                });
-        BundleConversion { success, failure }
-    }
-
-    pub fn validate_conversion(
-        self,
-        success_threshold: Option<f64>,
-        date: Date,
-    ) -> Result<Vec<ProductSnapshot>> {
-        let legacy_success = self.success.len();
-        let legacy_failure = self.failure.len();
-        let products: Vec<StdResult<ProductSnapshot, Error>> = self
-            .success
-            .into_iter()
-            .map(|s| s.try_into_snapshot_and_date(date))
-            .collect();
-        let (success, failure): (Vec<_>, Vec<_>) =
-            products.into_iter().partition_map(|v| match v {
-                Ok(v) => Either::Left(v),
-                Err(v) => Either::Right(v),
-            });
-
-        for fail in self.failure.iter() {
-            debug!("{fail:?}");
-        }
-        let metrics = ConversionMetrics {
-            success: legacy_success,
-            fail_search_result: legacy_failure,
-            fail_product: failure.len(),
-        };
-
-        // Use default if none given
-        let success_threshold = success_threshold.unwrap_or(CONVERSION_SUCCESS_THRESHOLD);
-
-        if metrics.failure_rate() > success_threshold {
-            error!(
-                "Conversion exceeds threshold of {}: {}",
-                success_threshold, metrics
-            );
-            return Err(Error::ProductConversion(format!(
-                "Error threshold of {success_threshold} for conversion exceeded: {metrics}",
-            )));
-        }
-        info!("Conversion succeeded: {}", metrics);
-        Ok(success)
-    }
 }
 
 #[cfg(test)]

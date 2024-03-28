@@ -1,6 +1,11 @@
 #[double]
 use super::http::WooliesHttpClient;
+use super::product::{Bundle, BundleProduct};
 use crate::cache::FsCache;
+use crate::conversion;
+use crate::errors::Error;
+use itertools::Either;
+use itertools::Itertools;
 use log::debug;
 use mockall_double::double;
 use serde::{Deserialize, Serialize};
@@ -33,18 +38,6 @@ pub struct Category {
 }
 
 impl Category {
-    pub fn is_filtered(&self) -> bool {
-        if IGNORED_CATEGORY_IDS.contains(&self.node_id.as_str()) {
-            return true;
-        }
-
-        if IGNORED_CATEGORY_DESCRIPTIONS.contains(&self.description.as_str()) {
-            return true;
-        }
-
-        false
-    }
-
     fn get_category(
         &self,
         client: &WooliesHttpClient,
@@ -86,9 +79,34 @@ impl Category {
         self.products = products;
         Ok(self.products.len())
     }
+}
 
-    pub fn into_products(self) -> Vec<serde_json::Value> {
+impl conversion::Category<BundleProduct> for Category {
+    fn is_filtered(&self) -> bool {
+        if IGNORED_CATEGORY_IDS.contains(&self.node_id.as_str()) {
+            return true;
+        }
+
+        if IGNORED_CATEGORY_DESCRIPTIONS.contains(&self.description.as_str()) {
+            return true;
+        }
+
+        false
+    }
+
+    fn into_products(self) -> (Vec<BundleProduct>, Vec<Error>) {
         self.products
+            .into_iter()
+            .partition_map(|v| match Bundle::from_json_value(v) {
+                Ok(v) => match v.products.len() {
+                    1 => Either::Left(v.products.into_iter().next().unwrap()),
+                    _ => Either::Right(Error::ProductConversion(format!(
+                        "Invalid number of products in bundle: {}",
+                        v.products.len()
+                    ))),
+                },
+                Err(v) => Either::Right(v),
+            })
     }
 }
 
@@ -109,6 +127,7 @@ pub struct CategoryResponse {
 #[cfg(test)]
 mod test {
     use crate::cache::test::get_cache;
+    use crate::conversion::Category as CategoryTrait;
     use crate::stores::woolies::get_categories;
     use serde_json::json;
 

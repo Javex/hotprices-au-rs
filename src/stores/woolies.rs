@@ -1,4 +1,5 @@
 use crate::cache::FsCache;
+use crate::conversion::Category as CategoryTrait;
 #[double]
 use crate::stores::woolies::http::WooliesHttpClient;
 use log::{debug, info};
