@@ -12,17 +12,21 @@ pub fn do_sync(
     skip_existing: bool,
     output_dir: PathBuf,
 ) -> anyhow::Result<()> {
-    if skip_existing {
-        todo!("Not implemented yet");
-    }
     let day = OffsetDateTime::now_utc().date();
+    let snapshot_path = get_snapshot_path(&output_dir, store, day);
     if print_save_path {
-        print!(
-            "{}",
-            get_snapshot_path(&output_dir, store, day).to_str().unwrap()
+        print!("{}", snapshot_path.to_str().unwrap(),);
+        return Ok(());
+    }
+
+    if skip_existing && snapshot_path.exists() {
+        println!(
+            "Skipping because outputfile {} already exists and requested to skip if output file exists.",
+            snapshot_path.to_str().unwrap(),
         );
         return Ok(());
     }
+
     let cache_path = output_dir.join(store.to_string()).join(day.to_string());
     create_dir_all(&cache_path)?;
     let cache: FsCache = FsCache::new(cache_path.clone());
@@ -30,7 +34,7 @@ pub fn do_sync(
         Store::Coles => coles::fetch(&cache, quick)?,
         Store::Woolies => woolies::fetch(&cache, quick)?,
     };
-    save_fetch_data(fetch_data, &output_dir, store, day)?;
+    save_fetch_data(fetch_data, &snapshot_path)?;
     remove(&cache_path)?;
     Ok(())
 }

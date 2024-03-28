@@ -26,14 +26,8 @@ pub(crate) fn get_snapshot_path(output_dir: &Path, store: Store, day: Date) -> P
     path
 }
 
-pub(crate) fn save_fetch_data(
-    data: String,
-    output_dir: &Path,
-    store: Store,
-    day: Date,
-) -> anyhow::Result<()> {
-    let file = get_snapshot_path(output_dir, store, day);
-    let file = File::create(file)?;
+pub(crate) fn save_fetch_data(data: String, snapshot_path: &Path) -> anyhow::Result<()> {
+    let file = File::create(snapshot_path)?;
     let mut file = GzEncoder::new(file, Compression::default());
     file.write_all(data.as_bytes())?;
     Ok(())
