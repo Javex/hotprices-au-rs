@@ -54,6 +54,7 @@ impl Category {
         &mut self,
         client: &WooliesHttpClient,
         cache: &FsCache,
+        quick: bool,
     ) -> anyhow::Result<usize> {
         let mut products = Vec::new();
         let mut page = 1;
@@ -72,6 +73,7 @@ impl Category {
 
             if products.len() as i64 >= category_response.total_record_count
                 || new_product_count == 0
+                || quick
             {
                 break;
             }
@@ -182,7 +184,7 @@ mod test {
         });
         let cache = get_cache();
         let mut category = Category::default();
-        category.fetch_products(&client, &cache).unwrap();
+        category.fetch_products(&client, &cache, false).unwrap();
         assert_eq!(category.products.len(), 2);
     }
 
@@ -199,7 +201,7 @@ mod test {
         });
         let cache = get_cache();
         let mut category = Category::default();
-        category.fetch_products(&client, &cache).unwrap();
+        category.fetch_products(&client, &cache, false).unwrap();
         assert_eq!(category.products.len(), 4);
     }
 
@@ -216,7 +218,7 @@ mod test {
         });
         let cache = get_cache();
         let mut category = Category::default();
-        category.fetch_products(&client, &cache).unwrap();
+        category.fetch_products(&client, &cache, false).unwrap();
         assert_eq!(category.products.len(), 0);
     }
 
