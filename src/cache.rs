@@ -4,15 +4,15 @@ use std::path::PathBuf;
 
 use mockall::automock;
 
-pub type FetchCallback<'a> = &'a dyn Fn() -> anyhow::Result<String>;
+pub(crate) type FetchCallback<'a> = &'a dyn Fn() -> anyhow::Result<String>;
 
-pub struct FsCache {
+pub(crate) struct FsCache {
     path: PathBuf,
 }
 
 #[automock]
 impl FsCache {
-    pub fn new(path: PathBuf) -> FsCache {
+    pub(crate) fn new(path: PathBuf) -> FsCache {
         FsCache { path }
     }
 
@@ -31,7 +31,7 @@ impl FsCache {
     }
 
     #[allow(clippy::needless_lifetimes)]
-    pub fn get_or_fetch<'a>(
+    pub(crate) fn get_or_fetch<'a>(
         &self,
         file: String,
         fetch: FetchCallback<'a>,
@@ -53,10 +53,10 @@ impl FsCache {
 }
 
 #[cfg(test)]
-pub mod test {
+pub(crate) mod test {
     use super::*;
 
-    pub fn get_cache() -> FsCache {
+    pub(crate) fn get_cache() -> FsCache {
         // create temporary folder to operate in
         let tmp = tempfile::tempdir().unwrap();
         FsCache::new(tmp.path().to_owned())

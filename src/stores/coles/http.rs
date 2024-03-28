@@ -25,7 +25,7 @@ impl RetryPolicy {
     }
 }
 
-pub struct ColesHttpClient {
+pub(crate) struct ColesHttpClient {
     client: ureq::Agent,
     version: Option<String>,
     api_key: Option<String>,
@@ -35,11 +35,11 @@ pub struct ColesHttpClient {
 #[automock]
 #[allow(dead_code)]
 impl ColesHttpClient {
-    pub fn new() -> anyhow::Result<Self> {
+    pub(crate) fn new() -> anyhow::Result<Self> {
         Self::new_client(None, None)
     }
 
-    pub fn new_with_setup(api_key: &str, version: String) -> anyhow::Result<Self> {
+    pub(crate) fn new_with_setup(api_key: &str, version: String) -> anyhow::Result<Self> {
         Self::new_client(Some(String::from(api_key)), Some(version))
     }
 
@@ -102,16 +102,16 @@ impl ColesHttpClient {
         panic!("Ended retry loop unexpectedly");
     }
 
-    pub fn get_setup_data(&self) -> anyhow::Result<String> {
+    pub(crate) fn get_setup_data(&self) -> anyhow::Result<String> {
         self.get(BASE_URL)
     }
 
-    pub fn get_categories(&self) -> anyhow::Result<String> {
+    pub(crate) fn get_categories(&self) -> anyhow::Result<String> {
         let cat_url = format!("{BASE_URL}/api/bff/products/categories?storeId={STORE_ID}");
         self.get(&cat_url)
     }
 
-    pub fn get_category(&self, slug: &str, page: i32) -> anyhow::Result<String> {
+    pub(crate) fn get_category(&self, slug: &str, page: i32) -> anyhow::Result<String> {
         let version = &self
             .version
             .as_ref()

@@ -9,7 +9,7 @@ use time::Date;
 use crate::{stores::Store, unit::Unit};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ProductInfo {
+pub(crate) struct ProductInfo {
     id: i64,
     name: String,
     description: String,
@@ -20,7 +20,7 @@ pub struct ProductInfo {
 }
 
 impl ProductInfo {
-    pub fn new(
+    pub(crate) fn new(
         id: i64,
         name: String,
         description: String,
@@ -43,61 +43,66 @@ impl ProductInfo {
 
 #[cfg_attr(test, derive(Default))]
 #[derive(Debug)]
-pub struct ProductSnapshot {
+pub(crate) struct ProductSnapshot {
     product_info: ProductInfo,
     price_snapshot: PriceSnapshot,
 }
 
 impl ProductSnapshot {
-    pub fn new(product_info: ProductInfo, price: Price, date: Date) -> Self {
+    pub(crate) fn new(product_info: ProductInfo, price: Price, date: Date) -> Self {
         Self {
             product_info,
             price_snapshot: PriceSnapshot { date, price },
         }
     }
 
-    pub fn id(&self) -> i64 {
+    pub(crate) fn id(&self) -> i64 {
         self.product_info.id
     }
 
-    pub fn name(&self) -> &str {
+    #[cfg(test)]
+    pub(crate) fn name(&self) -> &str {
         self.product_info.name.as_str()
     }
 
-    pub fn description(&self) -> &str {
+    #[cfg(test)]
+    pub(crate) fn description(&self) -> &str {
         self.product_info.description.as_str()
     }
 
-    pub fn is_weighted(&self) -> bool {
+    #[cfg(test)]
+    pub(crate) fn is_weighted(&self) -> bool {
         self.product_info.is_weighted
     }
 
-    pub fn store(&self) -> Store {
+    pub(crate) fn store(&self) -> Store {
         self.product_info.store
     }
 
-    pub fn unit(&self) -> Unit {
+    #[cfg(test)]
+    pub(crate) fn unit(&self) -> Unit {
         self.product_info.unit
     }
 
-    pub fn quantity(&self) -> f64 {
+    #[cfg(test)]
+    pub(crate) fn quantity(&self) -> f64 {
         self.product_info.quantity
     }
 
-    pub fn price(&self) -> Price {
+    pub(crate) fn price(&self) -> Price {
         self.price_snapshot.price
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ProductHistory {
+pub(crate) struct ProductHistory {
     #[serde(flatten)]
     product_info: ProductInfo,
     price_history: NonEmpty<PriceSnapshot>,
 }
 
 impl ProductHistory {
-    pub fn update_from_snapshot(&mut self, snapshot: ProductSnapshot) -> bool {
+    pub(crate) fn update_from_snapshot(&mut self, snapshot: ProductSnapshot) -> bool {
         let new_price = snapshot.price();
         self.product_info = snapshot.product_info;
 
@@ -115,11 +120,11 @@ impl ProductHistory {
         has_new_price
     }
 
-    pub fn id(&self) -> i64 {
+    pub(crate) fn id(&self) -> i64 {
         self.product_info.id
     }
 
-    pub fn store(&self) -> Store {
+    pub(crate) fn store(&self) -> Store {
         self.product_info.store
     }
 }
@@ -136,11 +141,11 @@ impl From<ProductSnapshot> for ProductHistory {
 use crate::date::date_serde;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct PriceSnapshot {
+pub(crate) struct PriceSnapshot {
     #[serde(with = "date_serde")]
-    pub date: Date,
+    date: Date,
     #[serde(with = "price_serde")]
-    pub price: Price,
+    price: Price,
 }
 
 impl Ord for PriceSnapshot {
@@ -168,7 +173,7 @@ impl PartialEq for PriceSnapshot {
 impl Eq for PriceSnapshot {}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Price {
+pub(crate) struct Price {
     price: i32,
 }
 
@@ -180,11 +185,11 @@ impl From<f64> for Price {
     }
 }
 
-pub mod price_serde {
+pub(crate) mod price_serde {
     use super::Price;
     use serde::{self, Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S>(price: &Price, serializer: S) -> Result<S::Ok, S::Error>
+    pub(crate) fn serialize<S>(price: &Price, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -192,7 +197,7 @@ pub mod price_serde {
         serializer.serialize_f64(price)
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Price, D::Error>
+    pub(crate) fn deserialize<'de, D>(deserializer: D) -> Result<Price, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -201,7 +206,7 @@ pub mod price_serde {
     }
 }
 
-pub fn merge_price_history(
+pub(crate) fn merge_price_history(
     old_items: Vec<ProductHistory>,
     new_items: Vec<ProductSnapshot>,
     store_filter: Option<Store>,
@@ -267,7 +272,7 @@ mod test_merge_price_history {
     }
 
     impl ProductInfo {
-        pub fn with_store(store: Store) -> Self {
+        pub(crate) fn with_store(store: Store) -> Self {
             Self {
                 store,
                 ..Default::default()
@@ -294,7 +299,7 @@ mod test_merge_price_history {
     }
 
     impl ProductHistory {
-        pub fn with_info(product_info: ProductInfo) -> Self {
+        pub(crate) fn with_info(product_info: ProductInfo) -> Self {
             Self {
                 product_info,
                 ..Default::default()
@@ -561,7 +566,7 @@ mod test_merge_price_history {
     }
 }
 
-pub fn deduplicate_products(products: Vec<ProductSnapshot>) -> Vec<ProductSnapshot> {
+pub(crate) fn deduplicate_products(products: Vec<ProductSnapshot>) -> Vec<ProductSnapshot> {
     let mut lookup = HashSet::new();
     let mut dedup_products = Vec::new();
     let mut duplicates = HashMap::new();

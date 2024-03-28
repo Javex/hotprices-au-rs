@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::errors::Error;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
-pub enum Unit {
+pub(crate) enum Unit {
     Each,
     Grams,
     Millilitre,
@@ -20,7 +20,7 @@ lazy_static! {
     ];
 }
 
-pub fn normalise_unit(unit: &str) -> anyhow::Result<(f64, Unit)> {
+fn normalise_unit(unit: &str) -> anyhow::Result<(f64, Unit)> {
     let (factor, unit) = match unit {
         // Grams
         "g" => (1.0, Unit::Grams),
@@ -47,7 +47,7 @@ pub fn normalise_unit(unit: &str) -> anyhow::Result<(f64, Unit)> {
     Ok((factor, unit))
 }
 
-pub fn parse_str_unit(size: &str) -> anyhow::Result<(f64, Unit)> {
+pub(crate) fn parse_str_unit(size: &str) -> anyhow::Result<(f64, Unit)> {
     let size = size.to_lowercase();
     let captures = UNIT_REGEX
         .captures(&size)

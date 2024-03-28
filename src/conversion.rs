@@ -21,7 +21,7 @@ struct ConversionMetrics {
 }
 
 impl ConversionMetrics {
-    pub fn failure_rate(&self) -> f64 {
+    pub(crate) fn failure_rate(&self) -> f64 {
         (self.fail_search_result + self.fail_product) as f64
             / (self.success + self.fail_search_result + self.fail_product) as f64
     }
@@ -40,16 +40,16 @@ impl Display for ConversionMetrics {
     }
 }
 
-pub trait Category<T> {
+pub(crate) trait Category<T> {
     fn is_filtered(&self) -> bool;
     fn into_products(self) -> (Vec<T>, Vec<Error>);
 }
 
-pub trait Product {
+pub(crate) trait Product {
     fn try_into_snapshot_and_date(self, date: Date) -> Result<ProductSnapshot>;
 }
 
-pub struct Conversion<T> {
+pub(crate) struct Conversion<T> {
     success: Vec<T>,
     failure: Vec<Error>,
 }
@@ -58,7 +58,7 @@ impl<T> Conversion<T>
 where
     T: Product,
 {
-    pub fn from_reader<C>(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>>
+    pub(crate) fn from_reader<C>(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>>
     where
         C: for<'a> Deserialize<'a> + Category<T>,
     {

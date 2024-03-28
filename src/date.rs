@@ -1,9 +1,9 @@
-pub mod date_serde {
+pub(crate) mod date_serde {
     use serde::{Deserialize, Deserializer, Serializer};
     use std::result::Result as StdResult;
     use time::{macros::format_description, Date};
 
-    pub fn serialize<S>(date: &Date, serializer: S) -> StdResult<S::Ok, S::Error>
+    pub(crate) fn serialize<S>(date: &Date, serializer: S) -> StdResult<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -15,7 +15,7 @@ pub mod date_serde {
         serializer.serialize_str(&date)
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> StdResult<Date, D::Error>
+    pub(crate) fn deserialize<'de, D>(deserializer: D) -> StdResult<Date, D::Error>
     where
         D: Deserializer<'de>,
     {

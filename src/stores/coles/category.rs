@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, io::Read};
+use std::{collections::HashMap, fmt::Display};
 
 #[double]
 use super::http::ColesHttpClient;
@@ -12,9 +12,9 @@ use serde::{Deserialize, Serialize};
 const SKIP_CATEGORIES: [&str; 2] = ["down-down", "back-to-school"];
 
 #[derive(Deserialize, Serialize)]
-pub struct Category {
+pub(crate) struct Category {
     #[serde(rename = "seoToken")]
-    pub seo_token: String,
+    seo_token: String,
 
     // This field is missing when getting a response for the category list, it's a custom field
     // that will hold products as they are getting fetched
@@ -23,7 +23,7 @@ pub struct Category {
 
     // Capture any values not explicitly specified so they survive serialization/deserialization
     #[serde(flatten)]
-    pub extra: HashMap<String, serde_json::Value>,
+    extra: HashMap<String, serde_json::Value>,
 }
 
 impl Category {
@@ -40,7 +40,7 @@ impl Category {
         Ok(json_data.page_props.search_results)
     }
 
-    pub fn fetch_products(
+    pub(crate) fn fetch_products(
         &mut self,
         client: &ColesHttpClient,
         cache: &FsCache,
@@ -101,18 +101,11 @@ impl Display for Category {
 }
 
 #[derive(Deserialize)]
-pub struct SearchResults {
+struct SearchResults {
     #[serde(rename = "results")]
-    pub results: Vec<serde_json::Value>,
+    results: Vec<serde_json::Value>,
     #[serde(rename = "noOfResults")]
     no_of_results: i64,
-}
-
-impl SearchResults {
-    pub fn from_reader(reader: impl Read) -> anyhow::Result<SearchResults> {
-        let json_data: CategoryJson = serde_json::from_reader(reader)?;
-        Ok(json_data.page_props.search_results)
-    }
 }
 
 #[derive(Deserialize)]
@@ -122,7 +115,7 @@ struct PageProps {
 }
 
 #[derive(Deserialize)]
-pub struct CategoryJson {
+struct CategoryJson {
     #[serde(rename = "pageProps")]
     page_props: PageProps,
 }

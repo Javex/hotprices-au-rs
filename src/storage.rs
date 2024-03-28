@@ -14,7 +14,7 @@ use time::Date;
 use crate::product::{ProductHistory, ProductSnapshot};
 use crate::stores::{coles, woolies, Store};
 
-pub fn remove(source: &Path) -> io::Result<()> {
+pub(crate) fn remove(source: &Path) -> io::Result<()> {
     info!("Removing cache directory {}", source.to_str().unwrap());
     fs::remove_dir_all(source)
 }
@@ -26,7 +26,7 @@ fn get_snapshot_path(output_dir: &Path, store: Store, day: Date) -> PathBuf {
     path
 }
 
-pub fn save_fetch_data(
+pub(crate) fn save_fetch_data(
     data: String,
     output_dir: &Path,
     store: Store,
@@ -39,7 +39,7 @@ pub fn save_fetch_data(
     Ok(())
 }
 
-pub fn load_history(output_dir: &Path) -> anyhow::Result<Vec<ProductHistory>> {
+pub(crate) fn load_history(output_dir: &Path) -> anyhow::Result<Vec<ProductHistory>> {
     let file = output_dir.join("latest-canonical.json.gz");
     let file = File::open(file)?;
     let file = GzDecoder::new(file);
@@ -49,7 +49,7 @@ pub fn load_history(output_dir: &Path) -> anyhow::Result<Vec<ProductHistory>> {
     Ok(products)
 }
 
-pub fn load_daily_snapshot(
+pub(crate) fn load_daily_snapshot(
     output_dir: &Path,
     day: Date,
     store_filter: Option<Store>,
@@ -67,8 +67,8 @@ pub fn load_daily_snapshot(
         let file = GzDecoder::new(file);
         let file = BufReader::new(file);
         let store_products = match store {
-            Store::Coles => coles::product::load_snapshot(file, day)?,
-            Store::Woolies => woolies::product::load_snapshot(file, day)?,
+            Store::Coles => coles::load_snapshot(file, day)?,
+            Store::Woolies => woolies::load_snapshot(file, day)?,
         };
         products.extend(store_products);
     }
@@ -76,7 +76,7 @@ pub fn load_daily_snapshot(
     Ok(products)
 }
 
-pub fn save_result(products: &Vec<ProductHistory>, output_dir: &Path) -> anyhow::Result<()> {
+pub(crate) fn save_result(products: &Vec<ProductHistory>, output_dir: &Path) -> anyhow::Result<()> {
     let file = output_dir.join("latest-canonical.json.gz");
     let file = File::create(file)?;
     let file = GzEncoder::new(file, Compression::default());
@@ -85,7 +85,7 @@ pub fn save_result(products: &Vec<ProductHistory>, output_dir: &Path) -> anyhow:
     Ok(())
 }
 
-pub fn save_to_site(
+pub(crate) fn save_to_site(
     products: &[ProductHistory],
     data_dir: &Path,
     compress: bool,

@@ -21,7 +21,7 @@ const IGNORED_CATEGORY_DESCRIPTIONS: [&str; 2] = [
 ];
 
 #[derive(Deserialize, Serialize)]
-pub struct Category {
+pub(crate) struct Category {
     #[serde(rename = "NodeId")]
     node_id: String,
     #[serde(rename = "Description")]
@@ -50,7 +50,7 @@ impl Category {
         Ok(serde_json::from_str(&resp)?)
     }
 
-    pub fn fetch_products(
+    pub(crate) fn fetch_products(
         &mut self,
         client: &WooliesHttpClient,
         cache: &FsCache,
@@ -99,7 +99,7 @@ impl conversion::Category<BundleProduct> for Category {
     fn into_products(self) -> (Vec<BundleProduct>, Vec<Error>) {
         self.products
             .into_iter()
-            .partition_map(|v| match Bundle::from_json_value(v) {
+            .partition_map(|v| match serde_json::from_value::<Bundle>(v) {
                 Ok(v) => match v.products.len() {
                     1 => Either::Left(v.products.into_iter().next().unwrap()),
                     _ => Either::Right(Error::ProductConversion(format!(
@@ -107,7 +107,7 @@ impl conversion::Category<BundleProduct> for Category {
                         v.products.len()
                     ))),
                 },
-                Err(v) => Either::Right(v),
+                Err(v) => Either::Right(v.into()),
             })
     }
 }
@@ -119,11 +119,11 @@ impl Display for Category {
 }
 
 #[derive(Deserialize)]
-pub struct CategoryResponse {
+pub(crate) struct CategoryResponse {
     #[serde(rename = "Bundles")]
-    pub bundles: Vec<serde_json::Value>,
+    pub(crate) bundles: Vec<serde_json::Value>,
     #[serde(rename = "TotalRecordCount")]
-    pub total_record_count: i64,
+    pub(crate) total_record_count: i64,
 }
 
 #[cfg(test)]

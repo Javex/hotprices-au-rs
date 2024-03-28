@@ -16,7 +16,11 @@ pub enum AnalysisType {
 }
 
 impl AnalysisType {
-    pub fn days(self, output_dir: &Path, store_filter: Option<Store>) -> anyhow::Result<Vec<Date>> {
+    pub(crate) fn days(
+        self,
+        output_dir: &Path,
+        store_filter: Option<Store>,
+    ) -> anyhow::Result<Vec<Date>> {
         match self {
             AnalysisType::History => history_days(output_dir, store_filter),
             AnalysisType::Day(day) => Ok(vec![day]),

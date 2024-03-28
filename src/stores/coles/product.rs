@@ -28,7 +28,7 @@ struct Pricing {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct SearchResult {
+pub(crate) struct SearchResult {
     id: i64,
     name: String,
     brand: String,
@@ -38,7 +38,7 @@ pub struct SearchResult {
 }
 
 impl SearchResult {
-    pub fn from_json_value(value: serde_json::Value) -> Result<SearchResult> {
+    pub(crate) fn from_json_value(value: serde_json::Value) -> Result<SearchResult> {
         let obj = match &value {
             serde_json::Value::Object(map) => map,
             x => return Err(anyhow!("Invalid object type value for {x}").into()),
@@ -106,7 +106,7 @@ struct ConversionMetrics {
 }
 
 impl ConversionMetrics {
-    pub fn failure_rate(&self) -> f64 {
+    pub(crate) fn failure_rate(&self) -> f64 {
         (self.fail_search_result + self.fail_product) as f64
             / (self.success + self.fail_search_result + self.fail_product) as f64
     }
@@ -125,7 +125,7 @@ impl Display for ConversionMetrics {
     }
 }
 
-pub fn load_snapshot(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {
+pub(crate) fn load_snapshot(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {
     let success = Conversion::from_reader::<Category>(file, date)?;
     Ok(success)
 }

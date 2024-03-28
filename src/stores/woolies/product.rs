@@ -13,7 +13,7 @@ use crate::unit::{parse_str_unit, Unit};
 use super::category::Category;
 
 #[derive(Deserialize, Debug)]
-pub struct BundleProduct {
+pub(crate) struct BundleProduct {
     #[serde(rename = "Stockcode")]
     stockcode: i64,
     #[serde(rename = "Name")]
@@ -97,22 +97,9 @@ impl Product for BundleProduct {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Bundle {
+pub(crate) struct Bundle {
     #[serde(rename = "Products")]
-    pub products: Vec<BundleProduct>,
-}
-
-impl Bundle {
-    pub fn from_json_value(value: serde_json::Value) -> Result<Bundle> {
-        let bundle = match serde_json::from_value(value.clone()) {
-            Ok(b) => b,
-            Err(e) => {
-                debug!("Error reading {value:?}: {e}");
-                return Err(e.into());
-            }
-        };
-        Ok(bundle)
-    }
+    pub(crate) products: Vec<BundleProduct>,
 }
 
 struct ConversionMetrics {
@@ -122,7 +109,7 @@ struct ConversionMetrics {
 }
 
 impl ConversionMetrics {
-    pub fn failure_rate(&self) -> f64 {
+    fn failure_rate(&self) -> f64 {
         (self.fail_search_result + self.fail_product) as f64
             / (self.success + self.fail_search_result + self.fail_product) as f64
     }
@@ -141,7 +128,7 @@ impl Display for ConversionMetrics {
     }
 }
 
-pub fn load_snapshot(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {
+pub(crate) fn load_snapshot(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {
     let success = Conversion::<BundleProduct>::from_reader::<Category>(file, date)?;
     Ok(success)
 }
@@ -155,7 +142,7 @@ mod test {
 
     use super::*;
 
-    pub fn load_file(fname: &str) -> String {
+    fn load_file(fname: &str) -> String {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("resources/test/woolies");
         path.push(fname);
@@ -167,7 +154,8 @@ mod test {
         let file = load_file("categories/one-product.json");
         let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
 
-        let bundle = Bundle::from_json_value(json_data).expect("Returned error instead of result");
+        let bundle =
+            serde_json::from_value::<Bundle>(json_data).expect("Returned error instead of result");
         assert_eq!(bundle.products.len(), 1);
         let [ref product] = bundle.products[..] else {
             panic!("invalid size")
@@ -186,7 +174,7 @@ mod test {
         let file = load_file(filename);
         let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
         let mut bundle =
-            Bundle::from_json_value(json_data).expect("Returned error instead of result");
+            serde_json::from_value::<Bundle>(json_data).expect("Returned error instead of result");
         assert_eq!(bundle.products.len(), 1);
         let product = bundle.products.pop().unwrap();
         let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();

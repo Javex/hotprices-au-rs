@@ -1,6 +1,8 @@
-pub mod category;
+mod category;
 mod http;
-pub mod product;
+mod product;
+
+pub(crate) use product::load_snapshot;
 
 use crate::cache::FsCache;
 use crate::conversion::Category as CategoryTrait;
@@ -63,7 +65,7 @@ fn get_categories(client: &ColesHttpClient) -> anyhow::Result<CategoriesResponse
     Ok(categories)
 }
 
-pub fn fetch(cache: &FsCache, quick: bool) -> anyhow::Result<String> {
+pub(crate) fn fetch(cache: &FsCache, quick: bool) -> anyhow::Result<String> {
     log::info!("Starting fetch for coles");
     let client = ColesHttpClient::new()?;
     let client = get_versioned_client(&client)?;

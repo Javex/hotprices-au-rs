@@ -10,7 +10,9 @@ use self::category::Category;
 
 mod category;
 mod http;
-pub mod product;
+mod product;
+
+pub(crate) use product::load_snapshot;
 
 #[derive(Deserialize)]
 struct CategoriesResponse {
@@ -24,7 +26,7 @@ fn get_categories(client: &WooliesHttpClient) -> anyhow::Result<CategoriesRespon
     Ok(categories)
 }
 
-pub fn fetch(cache: &FsCache, quick: bool) -> anyhow::Result<String> {
+pub(crate) fn fetch(cache: &FsCache, quick: bool) -> anyhow::Result<String> {
     info!("Starting fetch for woolies");
     let client = WooliesHttpClient::new();
     let categories = get_categories(&client)?;

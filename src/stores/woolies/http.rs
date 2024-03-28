@@ -24,7 +24,7 @@ impl RetryPolicy {
     }
 }
 
-pub struct WooliesHttpClient {
+pub(crate) struct WooliesHttpClient {
     client: ureq::Agent,
     retry_policy: RetryPolicy,
 }
@@ -32,7 +32,7 @@ pub struct WooliesHttpClient {
 #[automock]
 #[allow(dead_code)]
 impl WooliesHttpClient {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let cookie_store = CookieStore::new(None);
         let client = ureq::builder()
             .cookie_store(cookie_store)
@@ -48,7 +48,7 @@ impl WooliesHttpClient {
         }
     }
 
-    pub fn start(&self) -> anyhow::Result<()> {
+    pub(crate) fn start(&self) -> anyhow::Result<()> {
         self.get(BASE_URL)?;
         Ok(())
     }
@@ -90,12 +90,12 @@ impl WooliesHttpClient {
         panic!("Ended retry loop unexpectedly");
     }
 
-    pub fn get_categories(&self) -> anyhow::Result<String> {
+    pub(crate) fn get_categories(&self) -> anyhow::Result<String> {
         let cat_url = format!("{BASE_URL}/apis/ui/PiesCategoriesWithSpecials");
         self.get(&cat_url)
     }
 
-    pub fn get_category(&self, id: &str, page: i32) -> anyhow::Result<String> {
+    pub(crate) fn get_category(&self, id: &str, page: i32) -> anyhow::Result<String> {
         let url = format!("{BASE_URL}/apis/ui/browse/category");
         log::info!("Loading url '{url}'");
         for retry_count in 0..self.retry_policy.total {
