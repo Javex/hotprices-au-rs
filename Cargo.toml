@@ -24,10 +24,10 @@ scraper = "0.19.0"
 serde = { version = "1.0.197", features = ["serde_derive"] }
 serde_json = "1.0.114"
 strum = { version = "0.26.2", features = ["derive"] }
-tempfile = "3.10.1"
 thiserror = "1.0.58"
 time = "0.3.34"
 ureq = { version = "2.9.6", features = ["cookies", "json"] }
 
 [dev-dependencies]
 mockall = "0.12.1"
+tempfile = "3.10.1"
