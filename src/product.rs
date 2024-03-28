@@ -119,36 +119,8 @@ impl ProductHistory {
         self.product_info.id
     }
 
-    pub fn name(&self) -> &str {
-        self.product_info.name.as_str()
-    }
-
-    pub fn description(&self) -> &str {
-        self.product_info.description.as_str()
-    }
-
-    pub fn is_weighted(&self) -> bool {
-        self.product_info.is_weighted
-    }
-
     pub fn store(&self) -> Store {
         self.product_info.store
-    }
-
-    pub fn price(&self) -> Price {
-        self.price_history.first().price
-    }
-
-    pub fn unit(&self) -> Unit {
-        self.product_info.unit
-    }
-
-    pub fn quantity(&self) -> f64 {
-        self.product_info.quantity
-    }
-
-    pub fn price_history(&self) -> &NonEmpty<PriceSnapshot> {
-        &self.price_history
     }
 }
 
@@ -417,7 +389,6 @@ mod test_merge_price_history {
 
         assert_eq!(merged.price_history.len(), 1);
         assert_eq!(merged.price_history.first().price, 1.0.into());
-        assert_eq!(merged.price(), 1.0.into());
     }
 
     #[test]
@@ -487,7 +458,7 @@ mod test_merge_price_history {
             panic!("unexpected result size")
         };
 
-        assert_eq!(merged.name(), "New name");
+        assert_eq!(merged.product_info.name, "New name");
     }
 
     #[test]

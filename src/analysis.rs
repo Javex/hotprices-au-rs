@@ -109,10 +109,11 @@ mod test_do_analysis {
     };
 
     use flate2::{write::GzEncoder, Compression};
+    use serde_json::json;
     use tempfile::tempdir;
     use time::{Date, Month};
 
-    use crate::{analysis::AnalysisType, storage::load_history, stores::Store, unit::Unit};
+    use crate::{analysis::AnalysisType, storage::load_history, stores::Store};
 
     use super::{do_analysis, history_days};
 
@@ -190,27 +191,24 @@ mod test_do_analysis {
 
         // validate result
         let products = load_history(output_dir.path()).expect("should contain history");
-        let [ref product] = products[..] else {
-            panic!("should contain exactly one product")
-        };
-        assert_eq!(product.id(), 1);
-        assert_eq!(product.name(), "Brand name Product name");
-        assert_eq!(product.description(), "BRAND NAME PRODUCT NAME 150G");
-        assert_eq!(product.unit(), Unit::Grams);
-        assert_eq!(product.quantity(), 150.0);
-        let price_history = product.price_history();
-        assert_eq!(price_history.len(), 2);
-        let new_price = price_history.first();
-        let old_price = price_history.get(1).unwrap();
-        assert_eq!(new_price.price, 6.7.into());
+        let products = serde_json::to_value(products).unwrap();
         assert_eq!(
-            new_price.date,
-            Date::from_calendar_date(2024, Month::January, 2).unwrap()
-        );
-        assert_eq!(old_price.price, 12.0.into());
-        assert_eq!(
-            old_price.date,
-            Date::from_calendar_date(2024, Month::January, 1).unwrap()
+            products,
+            json!([
+                {
+                    "id": 1,
+                    "name": "Brand name Product name",
+                    "description": "BRAND NAME PRODUCT NAME 150G",
+                    "is_weighted": false,
+                    "unit": "Grams",
+                    "quantity": 150.0,
+                    "store": "coles",
+                    "price_history": [
+                        { "date": "2024-01-02", "price": 6.7 },
+                        { "date": "2024-01-01", "price": 12.0 },
+                    ]
+                }
+            ]),
         );
     }
 
@@ -244,22 +242,13 @@ mod test_do_analysis {
 
         // validate result
         let products = load_history(output_dir.path()).expect("should contain history");
-        let [ref product] = products[..] else {
-            panic!("should contain exactly one product")
-        };
-        let price_history = product.price_history();
-        assert_eq!(price_history.len(), 2);
-        let new_price = price_history.first();
-        let old_price = price_history.get(1).unwrap();
-        assert_eq!(new_price.price, 7.8.into());
+        let products = serde_json::to_value(products).unwrap();
         assert_eq!(
-            new_price.date,
-            Date::from_calendar_date(2024, Month::January, 2).unwrap()
-        );
-        assert_eq!(old_price.price, 6.7.into());
-        assert_eq!(
-            old_price.date,
-            Date::from_calendar_date(2024, Month::January, 1).unwrap()
+            products[0]["price_history"],
+            json!([
+                {"date": "2024-01-02", "price": 7.8},
+                {"date": "2024-01-01", "price": 6.7}
+            ])
         );
     }
 
