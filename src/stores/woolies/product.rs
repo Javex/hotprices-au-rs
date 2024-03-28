@@ -60,7 +60,7 @@ impl BundleProduct {
             }
         };
         let quantity = (price / cup_price * std_quantity).round();
-        if quantity < 100.0 {
+        if quantity < 10.0 {
             warn!("Low quantity of {quantity} during conversion of {self:?}");
             return Err(Error::ProductConversion(String::from(
                 "Low quantity for conversion",
