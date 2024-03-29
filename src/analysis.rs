@@ -108,8 +108,8 @@ pub fn do_analysis(
 mod test_do_analysis {
     use std::{
         fs::{create_dir_all, File},
-        io::{Read, Write},
-        path::{Path, PathBuf},
+        io::Write,
+        path::Path,
     };
 
     use flate2::{write::GzEncoder, Compression};
@@ -128,28 +128,10 @@ mod test_do_analysis {
             .try_init();
     }
 
-    fn copy_compressed(src: &Path, dst: &Path) {
-        let mut src = File::open(src).unwrap();
+    fn write_compressed(contents: &[u8], dst: &Path) {
         let dst = File::create(dst).unwrap();
         let mut dst = GzEncoder::new(dst, Compression::default());
-
-        let mut contents = Vec::new();
-        src.read_to_end(&mut contents).unwrap();
-        dst.write_all(&contents).unwrap();
-    }
-
-    fn setup_latest_canonical(resource: &str, output_dir: &Path) {
-        let src = PathBuf::from(format!("resources/test/latest-canonical/{resource}"));
-        let dst = output_dir.join("latest-canonical.json.gz");
-        copy_compressed(&src, &dst);
-    }
-
-    fn setup_snapshot(resource: &str, output_dir: &Path, day: Date, store: Store) {
-        let src = PathBuf::from(format!("resources/test/{resource}"));
-        let dst_dir = output_dir.join(store.to_string());
-        create_dir_all(&dst_dir).unwrap();
-        let dst = dst_dir.join(format!("{day}.json.gz"));
-        copy_compressed(&src, &dst);
+        dst.write_all(contents).unwrap();
     }
 
     #[test]
@@ -173,20 +155,68 @@ mod test_do_analysis {
     fn one_file() {
         init();
         let output_dir = tempdir().unwrap();
-        setup_latest_canonical("one-product.json", output_dir.path());
+
+        // create an existing history
+        let latest_canoncial = json!([
+            {
+                "id": 1,
+                "name": "Product Name",
+                "description": "PRODUCT DESCRIPTION",
+                "price": 12.0,
+                "price_history": [
+                  {
+                    "date": "2024-01-01",
+                    "price": 12.0
+                  }
+                ],
+                "is_weighted": true,
+                "unit": "Grams",
+                "quantity": 500.0,
+                "store": "coles"
+            }
+        ]);
+        write_compressed(
+            latest_canoncial.to_string().as_bytes(),
+            &output_dir.path().join("latest-canonical.json.gz"),
+        );
+
+        // add a new snapshot to it
         let data_dir = tempdir().unwrap();
         let day = Date::from_calendar_date(2024, Month::January, 2).unwrap();
-        setup_snapshot(
-            "snapshot/coles/one-product.json",
-            output_dir.path(),
-            day,
-            Store::Coles,
+        let snapshot = json!(
+            [
+              {
+                "seoToken": "category-slug",
+                "Products": [
+                  {
+                    "_type": "PRODUCT",
+                    "id": 1,
+                    "adId": null,
+                    "name": "Product name",
+                    "brand": "Brand name",
+                    "description": "BRAND NAME PRODUCT NAME 150G",
+                    "size": "150g",
+                    "pricing": {
+                      "now": 6.7,
+                      "unit": {
+                        "isWeighted": false
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
         );
-        let store: Option<Store> = Some(Store::Coles);
+        let store = Store::Coles;
+        let dst_dir = output_dir.path().join(store.to_string());
+        create_dir_all(&dst_dir).unwrap();
+        let dst = dst_dir.join(format!("{day}.json.gz"));
+        write_compressed(snapshot.to_string().as_bytes(), &dst);
+
         let compress = false;
         do_analysis(
             AnalysisType::Day(day),
-            store,
+            Some(store),
             compress,
             output_dir.path(),
             data_dir.path(),
@@ -219,21 +249,70 @@ mod test_do_analysis {
     #[test]
     fn history() {
         init();
+        // prepare test folders
         let output_dir = tempdir().unwrap();
         let data_dir = tempdir().unwrap();
         let store = Store::Coles;
-        setup_snapshot(
-            "snapshot/coles/one-product.json",
-            output_dir.path(),
-            Date::from_calendar_date(2024, Month::January, 1).unwrap(),
-            store,
+        let dst_dir = output_dir.path().join(store.to_string());
+        create_dir_all(&dst_dir).unwrap();
+
+        // add first snapshot
+        let day = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+        let snapshot = json!(
+            [
+              {
+                "seoToken": "category-slug",
+                "Products": [
+                  {
+                    "_type": "PRODUCT",
+                    "id": 1,
+                    "adId": null,
+                    "name": "Product name",
+                    "brand": "Brand name",
+                    "description": "BRAND NAME PRODUCT NAME 150G",
+                    "size": "150g",
+                    "pricing": {
+                      "now": 6.7,
+                      "unit": {
+                        "isWeighted": false
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
         );
-        setup_snapshot(
-            "snapshot/coles/one-product-new-price.json",
-            output_dir.path(),
-            Date::from_calendar_date(2024, Month::January, 2).unwrap(),
-            store,
+        let dst = dst_dir.join(format!("{day}.json.gz"));
+        write_compressed(snapshot.to_string().as_bytes(), &dst);
+
+        // Add second snapshot
+        let day = Date::from_calendar_date(2024, Month::January, 2).unwrap();
+        let snapshot = json!(
+            [
+              {
+                "seoToken": "category-slug",
+                "Products": [
+                  {
+                    "_type": "PRODUCT",
+                    "id": 1,
+                    "adId": null,
+                    "name": "Product name",
+                    "brand": "Brand name",
+                    "description": "BRAND NAME PRODUCT NAME 150G",
+                    "size": "150g",
+                    "pricing": {
+                      "now": 7.8,
+                      "unit": {
+                        "isWeighted": false
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
         );
+        let dst = dst_dir.join(format!("{day}.json.gz"));
+        write_compressed(snapshot.to_string().as_bytes(), &dst);
         let compress = false;
         do_analysis(
             AnalysisType::History,

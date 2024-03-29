@@ -125,13 +125,21 @@ mod test {
     use crate::conversion::Category as CategoryTrait;
     use crate::stores::coles::get_categories;
 
-    use super::super::test::load_file;
     use super::*;
     use serde_json::json;
     #[test]
     fn test_load_empty_search_results() {
-        let file = load_file("empty_search_results.json");
-        let json_data: CategoryJson = serde_json::from_str(&file).unwrap();
+        let empty_search_results = json!(
+            {
+              "pageProps": {
+                "searchResults": {
+                  "noOfResults": 749,
+                  "results": []
+                }
+              }
+            }
+        );
+        let json_data: CategoryJson = serde_json::from_value(empty_search_results).unwrap();
         let search_results = json_data.page_props.search_results;
         assert_eq!(search_results.no_of_results, 749);
         let results = search_results.results;

@@ -132,15 +132,34 @@ pub(crate) fn load_snapshot(file: impl Read, date: Date) -> Result<Vec<ProductSn
 
 #[cfg(test)]
 mod test {
+    use serde_json::json;
     use time::Month;
 
-    use super::super::test::load_file;
     use super::*;
 
     #[test]
     fn test_load_search_result() {
-        let file = load_file("search_results/product.json");
-        let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
+        let product = json!(
+            {
+              "_type": "PRODUCT",
+              "id": 42,
+              "adId": null,
+              "name": "Product name",
+              "brand": "Brand name",
+              "description": "BRAND NAME PRODUCT NAME 150G",
+              "size": "150g",
+              "pricing": {
+                "now": 6.7,
+                "unit": {
+                  "quantity": 1,
+                  "ofMeasureUnits": "g",
+                  "isWeighted": false
+                },
+                "comparable": "$4.47 per 100g"
+              }
+            }
+        );
+        let json_data: serde_json::Value = serde_json::from_value(product).unwrap();
 
         let product =
             SearchResult::from_json_value(json_data).expect("Returned error instead of result");
@@ -157,30 +176,47 @@ mod test {
 
     #[test]
     fn test_load_ad() {
-        let file = load_file("search_results/ad.json");
-        let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
+        let ad = json!(
+            {
+              "_type": "SINGLE_TILE",
+              "adId": "shotgun_OiDZVzGERQ75I3p_XqBW3OH9eBkKCgoIODgwNTg2NFASABoMCNnwy68GELGh7qUDIgIIAQ=="
+            }
+        );
+        let json_data: serde_json::Value = serde_json::from_value(ad).unwrap();
 
         let ad = SearchResult::from_json_value(json_data);
         let err = ad.expect_err("Search result should contain ad and thus return error");
         assert!(matches!(err, Error::AdResult));
     }
 
-    fn get_product_result(filename: &str) -> Result<ProductSnapshot> {
-        let file = load_file(filename);
-        let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
-        let product =
-            SearchResult::from_json_value(json_data).expect("Returned error instead of result");
-        let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
-        product.try_into_snapshot_and_date(date)
-    }
-
-    fn get_product(filename: &str) -> ProductSnapshot {
-        get_product_result(filename).expect("Expected conversion to succeed")
-    }
-
     #[test]
     fn test_load_normal() {
-        let product = get_product("search_results/product.json");
+        let product = json!(
+            {
+              "_type": "PRODUCT",
+              "id": 42,
+              "adId": null,
+              "name": "Product name",
+              "brand": "Brand name",
+              "description": "BRAND NAME PRODUCT NAME 150G",
+              "size": "150g",
+              "pricing": {
+                "now": 6.7,
+                "unit": {
+                  "quantity": 1,
+                  "ofMeasureUnits": "g",
+                  "isWeighted": false
+                },
+                "comparable": "$4.47 per 100g"
+              }
+            }
+        );
+        let product =
+            SearchResult::from_json_value(product).expect("Returned error instead of result");
+        let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+        let product = product
+            .try_into_snapshot_and_date(date)
+            .expect("Expected conversion to succeed");
         assert_eq!(product.id(), 42);
         assert_eq!(product.name(), "Brand name Product name");
         assert_eq!(product.description(), "BRAND NAME PRODUCT NAME 150G");
@@ -191,7 +227,22 @@ mod test {
 
     #[test]
     fn test_missing_price() {
-        let err = get_product_result("search_results/missing_price.json").unwrap_err();
+        let product = json!(
+            {
+              "_type": "PRODUCT",
+              "id": 42,
+              "adId": null,
+              "name": "Product name",
+              "brand": "Brand name",
+              "description": "BRAND NAME PRODUCT NAME 150G",
+              "size": "150g",
+              "pricing": null
+            }
+        );
+        let product =
+            SearchResult::from_json_value(product).expect("Returned error instead of result");
+        let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+        let err = product.try_into_snapshot_and_date(date).unwrap_err();
         match err {
             Error::ProductConversion(msg) => assert_eq!(msg, "missing field pricing"),
             _ => panic!("unexpected type err type"),
@@ -200,7 +251,32 @@ mod test {
 
     #[test]
     fn test_load_empty_brand() {
-        let product = get_product("search_results/empty_brand.json");
+        let product = json!(
+            {
+              "_type": "PRODUCT",
+              "id": 42,
+              "adId": null,
+              "name": "Product name",
+              "brand": "",
+              "description": "BRAND NAME PRODUCT NAME 150G",
+              "size": "150g",
+              "pricing": {
+                "now": 6.7,
+                "unit": {
+                  "quantity": 1,
+                  "ofMeasureUnits": "g",
+                  "isWeighted": false
+                },
+                "comparable": "$4.47 per 100g"
+              }
+            }
+        );
+        let product =
+            SearchResult::from_json_value(product).expect("Returned error instead of result");
+        let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+        let product = product
+            .try_into_snapshot_and_date(date)
+            .expect("Expected conversion to succeed");
         assert_eq!(product.name(), "Product name");
     }
 }

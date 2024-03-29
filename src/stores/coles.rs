@@ -90,22 +90,24 @@ pub(crate) fn fetch(cache: &FsCache, quick: bool) -> anyhow::Result<String> {
 mod test {
     use super::*;
     use serde_json::json;
-    use std::fs;
-    use std::path::PathBuf;
-
-    pub fn load_file(fname: &str) -> String {
-        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("resources/test/coles");
-        path.push(fname);
-        fs::read_to_string(path).expect("Failed to load test file")
-    }
 
     #[test]
     fn test_get_setup_data() {
         let mut client = ColesHttpClient::default();
         client.expect_get_setup_data().times(1).returning(|| {
-            let file = load_file("index/index_good.html");
-            Result::Ok(file)
+            let response = r#"
+                <!DOCTYPE html><html lang="en">
+                  <script id="__NEXT_DATA__" type="application/json">
+                    {
+                      "buildId": "20240101.01_v1.01.0",
+                      "runtimeConfig": {
+                        "BFF_API_SUBSCRIPTION_KEY": "testsubkey"
+                      }
+                    }
+                  </script>
+                </html>
+            "#;
+            Result::Ok(response.to_string())
         });
         let (api_key, version) = get_setup_data(&client).expect("Expected success");
         assert_eq!(version, "20240101.01_v1.01.0");

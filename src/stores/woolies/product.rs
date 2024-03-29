@@ -136,23 +136,31 @@ pub(crate) fn load_snapshot(file: impl Read, date: Date) -> Result<Vec<ProductSn
 #[cfg(test)]
 mod test {
     use core::panic;
-    use std::{fs, path::PathBuf};
 
+    use serde_json::json;
     use time::Month;
 
     use super::*;
 
-    fn load_file(fname: &str) -> String {
-        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("resources/test/woolies");
-        path.push(fname);
-        fs::read_to_string(path).expect("Failed to load test file")
-    }
-
     #[test]
     fn test_load_product() {
-        let file = load_file("categories/one-product.json");
-        let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
+        let json_data = json!(
+            {
+              "Products": [
+                {
+                  "Stockcode": 123,
+                  "CupPrice": 2.07,
+                  "CupMeasure": "100G",
+                  "Price": 12.02,
+                  "Name": "product name",
+                  "Description": "some long product description",
+                  "Unit": "Each",
+                  "PackageSize": "100g"
+                }
+              ]
+            }
+        );
+        let json_data: serde_json::Value = serde_json::from_value(json_data).unwrap();
 
         let bundle =
             serde_json::from_value::<Bundle>(json_data).expect("Returned error instead of result");
@@ -170,24 +178,33 @@ mod test {
         assert_eq!(product.cup_measure, "100G");
     }
 
-    fn get_product_result(filename: &str) -> Result<ProductSnapshot> {
-        let file = load_file(filename);
-        let json_data: serde_json::Value = serde_json::from_str(&file).unwrap();
+    #[test]
+    fn test_load_normal() {
+        let json_data = json!(
+            {
+              "Products": [
+                {
+                  "Stockcode": 123,
+                  "CupPrice": 2.07,
+                  "CupMeasure": "100G",
+                  "Price": 12.02,
+                  "Name": "product name",
+                  "Description": "some long product description",
+                  "Unit": "Each",
+                  "PackageSize": "100g"
+                }
+              ]
+            }
+        );
+        let json_data: serde_json::Value = serde_json::from_value(json_data).unwrap();
         let mut bundle =
             serde_json::from_value::<Bundle>(json_data).expect("Returned error instead of result");
         assert_eq!(bundle.products.len(), 1);
         let product = bundle.products.pop().unwrap();
         let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
-        product.try_into_snapshot_and_date(date)
-    }
-
-    fn get_product(filename: &str) -> ProductSnapshot {
-        get_product_result(filename).expect("Expected conversion to succeed")
-    }
-
-    #[test]
-    fn test_load_normal() {
-        let product = get_product("categories/one-product.json");
+        let product = product
+            .try_into_snapshot_and_date(date)
+            .expect("Expected conversion to succeed");
         assert_eq!(product.id(), 123);
         assert_eq!(product.name(), "product name");
         assert_eq!(product.description(), "some long product description");
@@ -198,7 +215,28 @@ mod test {
 
     #[test]
     fn test_missing_price() {
-        let err = get_product_result("categories/missing-price.json").unwrap_err();
+        let json_data = json!(
+            {
+              "Products": [
+                {
+                  "Stockcode": 123,
+                  "CupPrice": 2.07,
+                  "CupMeasure": "100G",
+                  "Price": null,
+                  "Name": "product name",
+                  "Description": "some long product description",
+                  "Unit": "Each",
+                  "PackageSize": "100g"
+                }
+              ]
+            }
+        );
+        let mut bundle =
+            serde_json::from_value::<Bundle>(json_data).expect("Returned error instead of result");
+        assert_eq!(bundle.products.len(), 1);
+        let product = bundle.products.pop().unwrap();
+        let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+        let err = product.try_into_snapshot_and_date(date).unwrap_err();
         match err {
             Error::ProductConversion(msg) => assert_eq!(msg, "Missing price on product name"),
             _ => panic!("unexpected type err type"),
@@ -207,7 +245,31 @@ mod test {
 
     #[test]
     fn test_std_quantity() {
-        let product = get_product("categories/unit-from-cup.json");
+        let json_data = json!(
+            {
+              "Products": [
+                {
+                  "Stockcode": 124,
+                  "CupPrice": 2.68,
+                  "CupMeasure": "100G",
+                  "Price": 15,
+                  "Name": "product name",
+                  "Description": "some long product description",
+                  "Unit": "Each",
+                  "PackageSize": "8x70g"
+                }
+              ]
+            }
+        );
+        let json_data: serde_json::Value = serde_json::from_value(json_data).unwrap();
+        let mut bundle =
+            serde_json::from_value::<Bundle>(json_data).expect("Returned error instead of result");
+        assert_eq!(bundle.products.len(), 1);
+        let product = bundle.products.pop().unwrap();
+        let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+        let product = product
+            .try_into_snapshot_and_date(date)
+            .expect("Expected conversion to succeed");
         assert_eq!(product.unit(), Unit::Grams);
         assert_eq!(product.quantity(), 560.0);
     }
