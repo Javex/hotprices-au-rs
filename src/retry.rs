@@ -136,4 +136,49 @@ mod test_retry {
         assert_eq!(status, 500);
         assert_eq!(retry_counter.into_inner(), 2);
     }
+
+    #[test]
+    fn test_retry_reset_on_success() {
+        let policy = RetryPolicy {
+            total: NonZeroU32::new(2).unwrap(),
+            max_backoff: Duration::from_secs(0),
+        };
+
+        let retry_counter = std::cell::RefCell::new(0);
+        let result = policy
+            .retry(|| {
+                let mut retry_counter_ref = retry_counter.borrow_mut();
+                *retry_counter_ref += 1;
+                if *retry_counter_ref == 1 {
+                    Err(ureq::Error::Status(
+                        500,
+                        ureq::Response::new(500, "Internal Server Error", "")?,
+                    ))
+                } else {
+                    ureq::Response::new(200, "OK", "")
+                }
+            })
+            .unwrap();
+        assert_eq!(result.status(), 200);
+        assert_eq!(retry_counter.into_inner(), 2);
+
+        // Try a second request, expect it to use a new retry counter
+        let retry_counter = std::cell::RefCell::new(0);
+        let result = policy
+            .retry(|| {
+                let mut retry_counter_ref = retry_counter.borrow_mut();
+                *retry_counter_ref += 1;
+                if *retry_counter_ref == 1 {
+                    Err(ureq::Error::Status(
+                        500,
+                        ureq::Response::new(500, "Internal Server Error", "")?,
+                    ))
+                } else {
+                    ureq::Response::new(200, "OK", "")
+                }
+            })
+            .unwrap();
+        assert_eq!(result.status(), 200);
+        assert_eq!(retry_counter.into_inner(), 2);
+    }
 }
