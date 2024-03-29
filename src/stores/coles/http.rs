@@ -1,30 +1,15 @@
-use std::{thread, time::Duration};
+use std::time::Duration;
 
 use anyhow::anyhow;
 use cookie_store::CookieStore;
-use log::{error, info};
 #[cfg(test)]
 use mockall::automock;
+
+use crate::retry::RetryPolicy;
 
 const BASE_URL: &str = "https://www.coles.com.au";
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36";
 const STORE_ID: &str = "0584";
-
-struct RetryPolicy {
-    total: u32,
-    max_backoff: Duration,
-}
-
-impl RetryPolicy {
-    fn get_backoff_time(&self, retry_count: u32) -> Duration {
-        let backoff_value = Duration::from_secs(2u64.pow(retry_count));
-        if backoff_value > self.max_backoff {
-            self.max_backoff
-        } else {
-            backoff_value
-        }
-    }
-}
 
 pub(crate) struct ColesHttpClient {
     client: ureq::Agent,
@@ -55,16 +40,13 @@ impl ColesHttpClient {
             client,
             version,
             api_key,
-            retry_policy: RetryPolicy {
-                total: 10,
-                max_backoff: Duration::from_secs(120),
-            },
+            retry_policy: RetryPolicy::default(),
         })
     }
 
     fn get(&self, url: &str) -> anyhow::Result<String> {
         log::info!("Loading url '{url}'");
-        for retry_count in 0..self.retry_policy.total {
+        let response = self.retry_policy.retry(|| {
             let request = self
                 .client
                 .get(url)
@@ -74,33 +56,10 @@ impl ColesHttpClient {
                 Some(api_key) => request.set("ocp-apim-subscription-key", api_key),
                 None => request,
             };
+            request.call()
+        })?;
 
-            let response = match request.call() {
-                Ok(response) => response,
-                Err(error) => {
-                    if retry_count < self.retry_policy.total - 1 {
-                        let sleep_time = self.retry_policy.get_backoff_time(retry_count);
-                        info!(
-                            "Retrying request after {} seconds due to error {}",
-                            sleep_time.as_secs(),
-                            error
-                        );
-                        thread::sleep(sleep_time);
-                        continue;
-                    }
-
-                    error!(
-                        "Failed request after {} retries, giving up due to error {}",
-                        retry_count, error
-                    );
-                    return Err(anyhow::Error::new(error)
-                        .context(format!("Failed request after {retry_count} retries")));
-                }
-            };
-
-            return Ok(response.into_string()?);
-        }
-        panic!("Ended retry loop unexpectedly");
+        Ok(response.into_string()?)
     }
 
     pub(crate) fn get_setup_data(&self) -> anyhow::Result<String> {

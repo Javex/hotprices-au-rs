@@ -4,6 +4,7 @@ mod conversion;
 mod date;
 mod errors;
 mod product;
+mod retry;
 mod storage;
 pub mod stores;
 pub mod sync;
