@@ -88,6 +88,8 @@ pub(crate) fn fetch(cache: &FsCache, quick: bool) -> anyhow::Result<String> {
 
 #[cfg(test)]
 mod test {
+    use crate::cache::test::get_cache;
+
     use super::*;
     use serde_json::json;
 
@@ -132,5 +134,73 @@ mod test {
         let categories = get_categories(&client).unwrap();
         let categories = categories.catalog_group_view;
         assert_eq!(categories.len(), 1);
+    }
+
+    #[test]
+    fn test_fetch() {
+        // prepare mock client
+        let new_with_setup_ctx = ColesHttpClient::new_with_setup_context();
+        new_with_setup_ctx.expect().returning(|_a, _v| {
+            let mut client = ColesHttpClient::default();
+            client.expect_get_categories().times(1).returning(|| {
+                let json_data = json!({
+                    "catalogGroupView": [
+                    {
+                        "seoToken": "slug",
+                    }
+                ]
+                });
+                Ok(json_data.to_string())
+            });
+
+            client.expect_get_category().times(1).returning(|_, _| {
+                let json_data = json!({
+                    "pageProps": {
+                        "searchResults": {
+                            // fake objects because fetch doesn't deserialize it
+                            "results": [{"testobj": "true"}],
+                            "noOfResults": 1,
+                        }
+                    }
+                });
+                Ok(json_data.to_string())
+            });
+            Ok(client)
+        });
+        let new_ctx = ColesHttpClient::new_context();
+        new_ctx.expect().returning(|| {
+            let mut client = ColesHttpClient::default();
+            client.expect_get_setup_data().times(1).returning(|| {
+                let response = r#"
+                    <!DOCTYPE html><html lang="en">
+                      <script id="__NEXT_DATA__" type="application/json">
+                        {
+                          "buildId": "20240101.01_v1.01.0",
+                          "runtimeConfig": {
+                            "BFF_API_SUBSCRIPTION_KEY": "testsubkey"
+                          }
+                        }
+                      </script>
+                    </html>
+                "#;
+                Result::Ok(response.to_string())
+            });
+            Ok(client)
+        });
+
+        let cache = get_cache();
+        let categories = fetch(&cache, false).unwrap();
+        let categories: serde_json::Value = serde_json::from_str(&categories).unwrap();
+        assert_eq!(
+            categories,
+            json!([
+                {
+                    "seoToken": "slug",
+                    "Products": [
+                        {"testobj": "true"}
+                    ]
+                }
+            ])
+        );
     }
 }
