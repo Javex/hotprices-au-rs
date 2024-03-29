@@ -19,7 +19,7 @@ fn configure_logging(cli: &Cli) {
     builder.init();
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     configure_logging(&cli);
 
@@ -47,9 +47,10 @@ fn main() {
     };
 
     // Print error message if result contained an error
-    if let Err(error) = result {
+    if let Err(ref error) = result.as_ref() {
         error!("Unexpected error from program: {}", error);
     }
+    result
 }
 
 #[derive(Parser)]
