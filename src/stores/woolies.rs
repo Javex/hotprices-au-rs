@@ -50,6 +50,8 @@ pub(crate) fn fetch(cache: &FsCache, quick: bool) -> anyhow::Result<String> {
 mod test {
     use serde_json::json;
 
+    use crate::cache::test::get_cache;
+
     use super::*;
 
     #[test]
@@ -71,5 +73,47 @@ mod test {
         let categories = get_categories(&client).unwrap();
         let categories = categories.categories;
         assert_eq!(categories.len(), 1);
+    }
+
+    #[test]
+    fn test_fetch() {
+        // prepare mock client
+        let new_ctx = WooliesHttpClient::new_context();
+        new_ctx.expect().returning(|| {
+            let mut client = WooliesHttpClient::default();
+            client.expect_get_categories().times(1).returning(|| {
+                let json_data = json!({
+                    "Categories": [
+                        {
+                            "NodeId": "1-ABCDEF12",
+                            "Description": "Category Description",
+                        }
+                    ]
+                });
+                Ok(json_data.to_string())
+            });
+
+            client.expect_get_category().times(1).returning(|_, _| {
+                let json_data = json!({
+                    // fake objects because fetch doesn't deserialize it
+                    "Bundles": [{"fakeobject": "fake"}],
+                    "TotalRecordCount": 1,
+                });
+                Ok(json_data.to_string())
+            });
+            client
+        });
+
+        let cache = get_cache();
+        let categories = fetch(&cache, false).unwrap();
+        let categories: serde_json::Value = serde_json::from_str(&categories).unwrap();
+        assert_eq!(
+            categories,
+            json!([{
+                "NodeId": "1-ABCDEF12",
+                "Description": "Category Description",
+                "Products": [{"fakeobject": "fake"}]
+            }])
+        );
     }
 }
