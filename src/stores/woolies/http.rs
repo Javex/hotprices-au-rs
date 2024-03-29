@@ -162,3 +162,13 @@ impl WooliesHttpClient {
         panic!("Ended retry loop unexpectedly");
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        WooliesHttpClient::new();
+    }
+}
