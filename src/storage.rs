@@ -1,3 +1,4 @@
+use anyhow::Context;
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use log::{debug, info};
 use std::fs::{self};
@@ -57,12 +58,17 @@ pub(crate) fn load_daily_snapshot(
             .join(store.to_string())
             .join(format!("{day}.json.gz"));
         debug!("Loading {}", file.to_str().expect("should be valid str"));
-        let file = File::open(file)?;
+        let file = File::open(&file).context(format!(
+            "Failed to open daily snapshot {}",
+            file.to_str().unwrap()
+        ))?;
         let file = GzDecoder::new(file);
         let file = BufReader::new(file);
         let store_products = match store {
-            Store::Coles => coles::load_snapshot(file, day)?,
-            Store::Woolies => woolies::load_snapshot(file, day)?,
+            Store::Coles => coles::load_snapshot(file, day)
+                .context("Failed to load coles data from snapshot")?,
+            Store::Woolies => woolies::load_snapshot(file, day)
+                .context("Failed to load woolies data from snapshot")?,
         };
         products.extend(store_products);
     }

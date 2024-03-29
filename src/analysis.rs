@@ -1,5 +1,6 @@
 use std::{fs, path::Path};
 
+use anyhow::Context;
 use log::debug;
 use strum::IntoEnumIterator;
 use time::{macros::format_description, Date};
@@ -95,7 +96,8 @@ pub fn do_analysis(
     let mut products = previous_products;
     // todo: make this return files instead of dates
     for day in analysis_type.days(output_dir, store)? {
-        let new_products = load_daily_snapshot(output_dir, day, store)?;
+        let new_products = load_daily_snapshot(output_dir, day, store)
+            .context(format!("Failed to load snapshot for day {day}"))?;
         let new_products = deduplicate_products(new_products);
         products = merge_price_history(products, new_products, store);
     }

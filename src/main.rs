@@ -1,3 +1,4 @@
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use hotprices_au_rs::analysis::{do_analysis, AnalysisType};
 use hotprices_au_rs::stores::Store;
@@ -43,6 +44,7 @@ fn main() -> anyhow::Result<()> {
                 AnalysisType::Day(day)
             };
             do_analysis(analysis_type, store, compress, &cli.output_dir, &data_dir)
+                .context("Failed to perform analysis")
         }
     };
 
