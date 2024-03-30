@@ -1,5 +1,5 @@
 use itertools::{Either, Itertools};
-use log::{debug, error, info};
+use log::{error, info};
 use serde::Deserialize;
 use std::fmt::Display;
 use std::io::Read;
@@ -103,9 +103,6 @@ where
                 Err(v) => Either::Right(v),
             });
 
-        for fail in self.failure.iter() {
-            debug!("{fail:?}");
-        }
         let metrics = ConversionMetrics {
             success: legacy_success,
             fail_search_result: legacy_failure,
