@@ -21,6 +21,10 @@ pub(crate) struct BundleProduct {
     description: String,
     #[serde(rename = "Price")]
     price: Option<f64>,
+    #[serde(rename = "WasPrice")]
+    was_price: f64,
+    #[serde(rename = "IsInStock")]
+    is_in_stock: bool,
     #[serde(rename = "PackageSize")]
     package_size: String,
     #[serde(rename = "CupPrice")]
@@ -71,9 +75,19 @@ impl BundleProduct {
 
 impl Product for BundleProduct {
     fn try_into_snapshot_and_date(self, date: Date) -> Result<ProductSnapshot> {
-        let price = self
-            .price
-            .ok_or_else(|| Error::ProductConversion(format!("Missing price on {}", self.name)))?;
+        let price = match self.price {
+            Some(price) => price,
+            None => {
+                if !self.is_in_stock && self.was_price > 0.0 {
+                    self.was_price
+                } else {
+                    return Err(Error::ProductConversion(format!(
+                        "Missing price on {}",
+                        self.name
+                    )));
+                }
+            }
+        };
 
         let (quantity, unit) = if self.cup_measure == "1EA" {
             (1.0, Unit::Each)
@@ -125,6 +139,8 @@ mod test {
                   "CupPrice": 2.07,
                   "CupMeasure": "100G",
                   "Price": 12.02,
+                  "WasPrice": 12.02,
+                  "IsInStock": true,
                   "Name": "product name",
                   "Description": "some long product description",
                   "Unit": "Each",
@@ -161,6 +177,8 @@ mod test {
                   "CupPrice": 2.07,
                   "CupMeasure": "100G",
                   "Price": 12.02,
+                  "WasPrice": 12.02,
+                  "IsInStock": true,
                   "Name": "product name",
                   "Description": "some long product description",
                   "Unit": "Each",
@@ -196,6 +214,8 @@ mod test {
                   "CupPrice": 2.07,
                   "CupMeasure": "100G",
                   "Price": null,
+                  "WasPrice": 12.02,
+                  "IsInStock": true,
                   "Name": "product name",
                   "Description": "some long product description",
                   "Unit": "Each",
@@ -226,6 +246,8 @@ mod test {
                   "CupPrice": 2.68,
                   "CupMeasure": "100G",
                   "Price": 15,
+                  "WasPrice": 12.02,
+                  "IsInStock": true,
                   "Name": "product name",
                   "Description": "some long product description",
                   "Unit": "Each",
@@ -254,6 +276,8 @@ mod test {
                 name: String::from("product name"),
                 description: String::from("product description"),
                 price: Some(1.0),
+                was_price: 1.0,
+                is_in_stock: true,
                 package_size: String::from("Each"),
                 cup_price: Some(1.0),
                 cup_measure: String::from("100g"),
@@ -275,5 +299,20 @@ mod test {
             err.to_string(),
             "Conversion error: Low quantity for conversion"
         );
+    }
+
+    #[test]
+    fn test_was_price() {
+        let product = BundleProduct {
+            price: None,
+            was_price: 1.0,
+            is_in_stock: false,
+            ..Default::default()
+        };
+
+        let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+
+        let product = product.try_into_snapshot_and_date(date).unwrap();
+        assert_eq!(product.price(), 1.0.into());
     }
 }
