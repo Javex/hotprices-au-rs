@@ -36,10 +36,12 @@ pub(crate) fn save_fetch_data(data: String, snapshot_path: &Path) -> anyhow::Res
 
 pub(crate) fn load_history(output_dir: &Path) -> anyhow::Result<Vec<ProductHistory>> {
     let file = output_dir.join("latest-canonical.json.gz");
-    let file = File::open(file)?;
+    let fpath = file.to_string_lossy();
+    let file = File::open(&file).with_context(|| format!("Failed to open history file {fpath}"))?;
     let file = GzDecoder::new(file);
     let file = BufReader::new(file);
-    let products: Vec<ProductHistory> = serde_json::from_reader(file)?;
+    let products: Vec<ProductHistory> = serde_json::from_reader(file)
+        .with_context(|| format!("Failed to load history from {fpath}"))?;
     debug!("Loaded {} products from history", products.len());
     Ok(products)
 }
