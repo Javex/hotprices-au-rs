@@ -4,7 +4,7 @@ use std::{collections::HashMap, fmt::Display};
 use super::http::ColesHttpClient;
 use super::product::SearchResult;
 use crate::{cache::FsCache, conversion, errors::Error};
-use itertools::{Either, Itertools};
+use anyhow::Context;
 use log::debug;
 use mockall_double::double;
 use serde::{Deserialize, Serialize};
@@ -77,20 +77,20 @@ impl conversion::Category<SearchResult> for Category {
         false
     }
 
-    fn into_products(self) -> (Vec<SearchResult>, Vec<Error>) {
-        let (success, failure): (Vec<_>, Vec<_>) =
-            self.products
-                .into_iter()
-                .partition_map(|v| match SearchResult::from_json_value(v) {
-                    Ok(v) => Either::Left(v),
-                    Err(v) => Either::Right(v),
-                });
-
-        let failure = failure
+    fn into_products(self) -> anyhow::Result<Vec<SearchResult>> {
+        self.products
             .into_iter()
-            .filter(|e| !matches!(e, Error::AdResult))
-            .collect();
-        (success, failure)
+            .filter_map(|v| match SearchResult::from_json_value(v) {
+                Ok(v) => Some(Ok(v)),
+                Err(err) => match err {
+                    Error::AdResult => None,
+                    _ => Some(
+                        Err(err)
+                            .context("Failed to convert product {:#?} to SearchResult from JSON"),
+                    ),
+                },
+            })
+            .collect()
     }
 }
 
@@ -180,8 +180,7 @@ mod test {
             })],
             extra: HashMap::new(),
         };
-        let (success, failure) = category.into_products();
-        assert!(success.is_empty());
-        assert!(failure.is_empty());
+        let search_results = category.into_products().unwrap();
+        assert!(search_results.is_empty());
     }
 }

@@ -3,9 +3,8 @@ use super::http::WooliesHttpClient;
 use super::product::{Bundle, BundleProduct};
 use crate::cache::FsCache;
 use crate::conversion;
-use crate::errors::Error;
-use itertools::Either;
-use itertools::Itertools;
+use anyhow::bail;
+use anyhow::Context;
 use log::debug;
 use mockall_double::double;
 use serde::{Deserialize, Serialize};
@@ -96,19 +95,19 @@ impl conversion::Category<BundleProduct> for Category {
         false
     }
 
-    fn into_products(self) -> (Vec<BundleProduct>, Vec<Error>) {
+    fn into_products(self) -> anyhow::Result<Vec<BundleProduct>> {
         self.products
             .into_iter()
-            .partition_map(|v| match serde_json::from_value::<Bundle>(v) {
+            .map(|v| match serde_json::from_value::<Bundle>(v) {
                 Ok(v) => match v.products.len() {
-                    1 => Either::Left(v.products.into_iter().next().unwrap()),
-                    _ => Either::Right(Error::ProductConversion(format!(
-                        "Invalid number of products in bundle: {}",
-                        v.products.len()
-                    ))),
+                    1 => Ok(v.products.into_iter().next().unwrap()),
+                    _ => bail!("Invalid number of products in bundle: {}", v.products.len()),
                 },
-                Err(v) => Either::Right(v.into()),
+                Err(err) => {
+                    Err(err).context("Failed to convert product to BundleProduct from JSON")
+                }
             })
+            .collect()
     }
 }
 

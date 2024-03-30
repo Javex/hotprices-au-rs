@@ -1,4 +1,4 @@
-use crate::conversion::{Conversion, Product};
+use crate::conversion::{self, Product};
 use crate::errors::{Error, Result};
 use crate::product::{price_serde, Price};
 use crate::product::{ProductInfo, ProductSnapshot};
@@ -98,8 +98,8 @@ fn get_quantity_and_unit(item: &SearchResult) -> Result<(f64, Unit)> {
     Ok((parsed_quantity, unit))
 }
 
-pub(crate) fn load_snapshot(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {
-    let success = Conversion::from_reader::<Category>(file, date)?;
+pub(crate) fn load_snapshot(file: impl Read, date: Date) -> anyhow::Result<Vec<ProductSnapshot>> {
+    let success = conversion::from_reader::<Category, SearchResult>(file, date)?;
     Ok(success)
 }
 

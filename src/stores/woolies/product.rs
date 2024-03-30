@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::io::Read;
 use time::Date;
 
-use crate::conversion::{Conversion, Product};
+use crate::conversion::{self, Product};
 use crate::errors::{Error, Result};
 use crate::product::{Price, ProductInfo, ProductSnapshot};
 use crate::stores::Store;
@@ -116,7 +116,7 @@ pub(crate) struct Bundle {
 }
 
 pub(crate) fn load_snapshot(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {
-    let success = Conversion::<BundleProduct>::from_reader::<Category>(file, date)?;
+    let success = conversion::from_reader::<Category, BundleProduct>(file, date)?;
     Ok(success)
 }
 
