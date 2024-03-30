@@ -5,7 +5,6 @@ use crate::product::{ProductInfo, ProductSnapshot};
 use crate::stores::coles::category::Category;
 use crate::stores::Store;
 use crate::unit::{parse_str_unit, Unit};
-use std::fmt::Display;
 
 use anyhow::anyhow;
 use serde::Deserialize;
@@ -97,32 +96,6 @@ fn get_quantity_and_unit(item: &SearchResult) -> Result<(f64, Unit)> {
     }
     let (parsed_quantity, unit) = parse_str_unit(size)?;
     Ok((parsed_quantity, unit))
-}
-
-struct ConversionMetrics {
-    success: usize,
-    fail_search_result: usize,
-    fail_product: usize,
-}
-
-impl ConversionMetrics {
-    pub(crate) fn failure_rate(&self) -> f64 {
-        (self.fail_search_result + self.fail_product) as f64
-            / (self.success + self.fail_search_result + self.fail_product) as f64
-    }
-}
-
-impl Display for ConversionMetrics {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Success: {}, Fail Search Result: {}, Fail Product: {}, Failure rate: {:.2}%",
-            self.success,
-            self.fail_search_result,
-            self.fail_product,
-            self.failure_rate() * 100.0,
-        )
-    }
 }
 
 pub(crate) fn load_snapshot(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {

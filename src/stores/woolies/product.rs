@@ -1,6 +1,5 @@
 use log::{debug, warn};
 use serde::Deserialize;
-use std::fmt::Display;
 use std::io::Read;
 use time::Date;
 
@@ -100,32 +99,6 @@ impl Product for BundleProduct {
 pub(crate) struct Bundle {
     #[serde(rename = "Products")]
     pub(crate) products: Vec<BundleProduct>,
-}
-
-struct ConversionMetrics {
-    success: usize,
-    fail_search_result: usize,
-    fail_product: usize,
-}
-
-impl ConversionMetrics {
-    fn failure_rate(&self) -> f64 {
-        (self.fail_search_result + self.fail_product) as f64
-            / (self.success + self.fail_search_result + self.fail_product) as f64
-    }
-}
-
-impl Display for ConversionMetrics {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Success: {}, Fail Search Result: {}, Fail Product: {}, Failure rate: {:.2}%",
-            self.success,
-            self.fail_search_result,
-            self.fail_product,
-            self.failure_rate() * 100.0,
-        )
-    }
 }
 
 pub(crate) fn load_snapshot(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {
