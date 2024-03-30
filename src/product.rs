@@ -13,6 +13,7 @@ pub(crate) struct ProductInfo {
     id: i64,
     name: String,
     description: String,
+    #[serde(rename = "isWeighted")]
     is_weighted: bool,
     unit: Unit,
     quantity: f64,
@@ -98,6 +99,7 @@ impl ProductSnapshot {
 pub(crate) struct ProductHistory {
     #[serde(flatten)]
     product_info: ProductInfo,
+    #[serde(rename = "priceHistory")]
     price_history: NonEmpty<PriceSnapshot>,
 }
 

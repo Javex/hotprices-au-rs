@@ -165,14 +165,14 @@ mod test_do_analysis {
                 "name": "Product Name",
                 "description": "PRODUCT DESCRIPTION",
                 "price": 12.0,
-                "price_history": [
+                "priceHistory": [
                   {
                     "date": "2024-01-01",
                     "price": 12.0
                   }
                 ],
-                "is_weighted": true,
-                "unit": "Grams",
+                "isWeighted": true,
+                "unit": "g",
                 "quantity": 500.0,
                 "store": "coles"
             }
@@ -235,11 +235,11 @@ mod test_do_analysis {
                     "id": 1,
                     "name": "Brand name Product name",
                     "description": "BRAND NAME PRODUCT NAME 150G",
-                    "is_weighted": false,
-                    "unit": "Grams",
+                    "isWeighted": false,
+                    "unit": "g",
                     "quantity": 150.0,
                     "store": "coles",
-                    "price_history": [
+                    "priceHistory": [
                         { "date": "2024-01-02", "price": 6.7 },
                         { "date": "2024-01-01", "price": 12.0 },
                     ]
@@ -329,7 +329,7 @@ mod test_do_analysis {
         let products = load_history(output_dir.path()).expect("should contain history");
         let products = serde_json::to_value(products).unwrap();
         assert_eq!(
-            products[0]["price_history"],
+            products[0]["priceHistory"],
             json!([
                 {"date": "2024-01-02", "price": 7.8},
                 {"date": "2024-01-01", "price": 6.7}

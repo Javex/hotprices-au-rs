@@ -6,9 +6,13 @@ use crate::errors::Error;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
 pub(crate) enum Unit {
+    #[serde(rename = "ea")]
     Each,
+    #[serde(rename = "g")]
     Grams,
+    #[serde(rename = "ml")]
     Millilitre,
+    #[serde(rename = "cm")]
     Centimetre,
 }
 
