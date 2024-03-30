@@ -109,7 +109,7 @@ where
             fail_product: failure.len(),
         };
 
-        // Use default if none given
+        // Global default value, currently fixed but could be changed
         let success_threshold = CONVERSION_SUCCESS_THRESHOLD;
 
         if metrics.failure_rate() > success_threshold {
@@ -123,5 +123,112 @@ where
         }
         info!("Conversion succeeded: {}", metrics);
         Ok(success)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use serde_json::json;
+
+    use super::*;
+
+    #[derive(Deserialize)]
+    struct TestProduct {}
+
+    impl Product for TestProduct {
+        fn try_into_snapshot_and_date(self, _: Date) -> Result<ProductSnapshot> {
+            Ok(ProductSnapshot::default())
+        }
+    }
+
+    #[derive(Deserialize)]
+    struct TestCategory {
+        is_filtered: bool,
+        products: Vec<TestProduct>,
+        #[serde(default)]
+        into_errors: u32,
+    }
+
+    impl Category<TestProduct> for TestCategory {
+        fn is_filtered(&self) -> bool {
+            self.is_filtered
+        }
+        fn into_products(self) -> (Vec<TestProduct>, Vec<Error>) {
+            let errors = (0..self.into_errors).map(|_| Error::ProductConversion(String::new()));
+            (self.products, errors.collect())
+        }
+    }
+
+    #[test]
+    fn conversion() {
+        let json_data = json!([
+            {
+                "is_filtered": false,
+                "products": [{}],
+            }
+        ])
+        .to_string();
+        let date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+        let products =
+            Conversion::<TestProduct>::from_reader::<TestCategory>(json_data.as_bytes(), date)
+                .unwrap();
+        assert_eq!(products.len(), 1);
+    }
+
+    #[test]
+    fn conversion_is_filtered() {
+        let json_data = json!([
+            {
+                "is_filtered": false,
+                "products": [{}],
+            },
+            {
+                "is_filtered": true,
+                "products": [{}],
+            }
+        ])
+        .to_string();
+        let date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+        let products =
+            Conversion::<TestProduct>::from_reader::<TestCategory>(json_data.as_bytes(), date)
+                .unwrap();
+        assert_eq!(products.len(), 1);
+    }
+
+    #[test]
+    fn conversion_fail_into_products() {
+        let categories = vec![TestCategory {
+            into_errors: 1,
+            is_filtered: false,
+            products: vec![],
+        }];
+        let conversion = Conversion::<TestProduct>::convert_all::<TestCategory>(categories);
+        assert_eq!(conversion.failure.len(), 1);
+        assert_eq!(conversion.success.len(), 0);
+    }
+
+    #[test]
+    fn conversion_fail_into_snapshot() {
+        struct TestProduct {}
+
+        impl Product for TestProduct {
+            fn try_into_snapshot_and_date(self, _: Date) -> Result<ProductSnapshot> {
+                Err(Error::ProductConversion(String::new()))
+            }
+        }
+
+        let conversion = Conversion {
+            success: vec![TestProduct {}],
+            failure: vec![],
+        };
+        let date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+        let err = conversion.convert(date).unwrap_err();
+        match err {
+            Error::ProductConversion(msg) => assert!(
+                msg.contains("Error threshold"),
+                "Message did not contain expected value in '{msg}'"
+            ),
+            _ => panic!("Wrong error type, expected conversion error with threshold message"),
+        };
     }
 }
