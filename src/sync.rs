@@ -11,6 +11,7 @@ pub fn do_sync(
     print_save_path: bool,
     skip_existing: bool,
     output_dir: PathBuf,
+    cache_path: PathBuf,
 ) -> anyhow::Result<()> {
     let day = OffsetDateTime::now_utc().date();
     let snapshot_path = get_snapshot_path(&output_dir, store, day);
@@ -27,7 +28,7 @@ pub fn do_sync(
         return Ok(());
     }
 
-    let cache_path = output_dir.join(store.to_string()).join(day.to_string());
+    let cache_path = cache_path.join(store.to_string()).join(day.to_string());
     create_dir_all(&cache_path)?;
     let cache: FsCache = FsCache::new(cache_path.clone());
     let fetch_data = match store {

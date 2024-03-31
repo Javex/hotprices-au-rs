@@ -30,7 +30,15 @@ fn main() -> anyhow::Result<()> {
             print_save_path,
             skip_existing,
             store,
-        } => do_sync(store, quick, print_save_path, skip_existing, cli.output_dir),
+            cache_path,
+        } => do_sync(
+            store,
+            quick,
+            print_save_path,
+            skip_existing,
+            cli.output_dir,
+            cache_path,
+        ),
         Commands::Analysis {
             day,
             store,
@@ -76,6 +84,8 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         skip_existing: bool,
         store: Store,
+        #[arg(long, default_value = "cache")]
+        cache_path: PathBuf,
     },
     Analysis {
         #[arg(long, value_parser = date_from_str, default_value_t = OffsetDateTime::now_utc().date())]
