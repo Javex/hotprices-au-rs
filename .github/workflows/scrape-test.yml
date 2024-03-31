@@ -32,6 +32,11 @@ jobs:
         with:
           name: hotprices-au-rs
       - run: chmod +x ./hotprices-au-rs
+      - name: Activate fetch cache
+        uses: actions/cache@v4
+        with:
+          path: ./cache
+          key: ${{ github.workflow }}-${{ github.job }}
       - run: ./hotprices-au-rs sync --quick woolies
       - name: Save cache of downloaded files on failure
         uses: actions/cache/save@v4
@@ -52,7 +57,7 @@ jobs:
         with:
           name: hotprices-au-rs
       - run: chmod +x ./hotprices-au-rs
-      - name: Activate fetch cache for coles
+      - name: Activate fetch cache
         uses: actions/cache@v4
         with:
           path: ./cache
