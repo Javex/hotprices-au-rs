@@ -28,6 +28,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: hotprices-au-rs
+      - run: chmod +x ./hotprices-au-rs
       - run: ./hotprices-au-rs sync --quick woolies
       - uses: actions/upload-artifact@v4
         with:
@@ -41,6 +42,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: hotprices-au-rs
+      - run: chmod +x ./hotprices-au-rs
       - run: ./hotprices-au-rs sync --quick coles
       - uses: actions/upload-artifact@v4
         with:
@@ -77,6 +79,7 @@ jobs:
       # Use "cp" because it is an error if the file doesn't exist. It means history
       # is broken and needs to be built from scratch locally.
       - run: aws s3 cp s3://grocery-scrape-au/latest-canonical.json.gz ./output/
+      - run: chmod +x ./hotprices-au-rs
       - run: ./hotprices-au-rs analysis
       - uses: actions/upload-artifact@v4
         with:
