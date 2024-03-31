@@ -4,7 +4,7 @@ use std::{collections::HashMap, fmt::Display};
 use super::http::ColesHttpClient;
 use super::product::SearchResult;
 use crate::{cache::FsCache, conversion, errors::Error};
-use anyhow::Context;
+use anyhow::{bail, Context};
 use log::debug;
 use mockall_double::double;
 use serde::{Deserialize, Serialize};
@@ -61,6 +61,7 @@ impl Category {
             products.extend(new_products);
 
             if products.len() as i64 >= category_response.no_of_results || quick {
+                bail!("Just a test");
                 break;
             }
         }
