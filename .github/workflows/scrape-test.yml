@@ -31,6 +31,12 @@ jobs:
           name: hotprices-au-rs
       - run: chmod +x ./hotprices-au-rs
       - run: ./hotprices-au-rs sync --quick woolies
+      - name: Save cache of downloaded files on failure
+        uses: actions/cache/save@v3
+        if: failure()
+        with:
+          path: ./cache
+          key: ${{ github.workflow }}-${{ github.job }}
       - uses: actions/upload-artifact@v4
         with:
           name: woolies_snapshot
@@ -45,6 +51,12 @@ jobs:
           name: hotprices-au-rs
       - run: chmod +x ./hotprices-au-rs
       - run: ./hotprices-au-rs sync --quick coles
+      - name: Save cache of downloaded files on failure
+        uses: actions/cache/save@v3
+        if: failure()
+        with:
+          path: ./cache
+          key: ${{ github.workflow }}-${{ github.job }}
       - uses: actions/upload-artifact@v4
         with:
           name: coles_snapshot
