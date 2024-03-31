@@ -42,7 +42,18 @@ jobs:
           echo "Save path is ${save_path}"
           mkdir -p ./output/
           aws s3 cp "s3://grocery-scrape-au/${save_path}" "./output/${save_path}" || true
+      - name: Activate fetch cache
+        uses: actions/cache@v4
+        with:
+          path: ./cache
+          key: ${{ github.workflow }}-${{ github.job }}
       - run: ./hotprices-au-rs sync woolies --skip-existing
+      - name: Save cache of downloaded files on failure
+        uses: actions/cache/save@v4
+        if: failure()
+        with:
+          path: ./cache
+          key: ${{ github.workflow }}-${{ github.job }}
       - uses: actions/upload-artifact@v4
         with:
           name: woolies_snapshot
@@ -77,7 +88,18 @@ jobs:
           echo "Save path is ${save_path}"
           mkdir -p ./output/
           aws s3 cp "s3://grocery-scrape-au/${save_path}" "./output/${save_path}" || true
+      - name: Activate fetch cache
+        uses: actions/cache@v4
+        with:
+          path: ./cache
+          key: ${{ github.workflow }}-${{ github.job }}
       - run: ./hotprices-au-rs sync coles --skip-existing
+      - name: Save cache of downloaded files on failure
+        uses: actions/cache/save@v4
+        if: failure()
+        with:
+          path: ./cache
+          key: ${{ github.workflow }}-${{ github.job }}
       - uses: actions/upload-artifact@v4
         with:
           name: coles_snapshot
