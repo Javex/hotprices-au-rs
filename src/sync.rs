@@ -15,14 +15,14 @@ pub fn do_sync(
     let day = OffsetDateTime::now_utc().date();
     let snapshot_path = get_snapshot_path(&output_dir, store, day);
     if print_save_path {
-        print!("{}", snapshot_path.to_str().unwrap(),);
+        print!("{}", snapshot_path.to_string_lossy());
         return Ok(());
     }
 
     if skip_existing && snapshot_path.exists() {
         println!(
             "Skipping because outputfile {} already exists and requested to skip if output file exists.",
-            snapshot_path.to_str().unwrap(),
+            snapshot_path.to_string_lossy(),
         );
         return Ok(());
     }

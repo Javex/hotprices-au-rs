@@ -51,7 +51,7 @@ fn history_days(output_dir: &Path, store_filter: Option<Store>) -> anyhow::Resul
                     )))
                 }
             };
-            let file_name = file_name.to_str().expect("file path should be valid str");
+            let file_name = file_name.to_string_lossy();
             let mut splits = file_name.split('.');
             let basename = match splits.next() {
                 Some(b) => b,

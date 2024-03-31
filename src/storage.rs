@@ -16,7 +16,7 @@ use crate::product::{ProductHistory, ProductSnapshot};
 use crate::stores::{coles, woolies, Store};
 
 pub(crate) fn remove(source: &Path) -> io::Result<()> {
-    info!("Removing cache directory {}", source.to_str().unwrap());
+    info!("Removing cache directory {}", source.to_string_lossy());
     fs::remove_dir_all(source)
 }
 
@@ -59,10 +59,10 @@ pub(crate) fn load_daily_snapshot(
         let file = output_dir
             .join(store.to_string())
             .join(format!("{day}.json.gz"));
-        debug!("Loading {}", file.to_str().expect("should be valid str"));
+        debug!("Loading {}", file.to_string_lossy());
         let file = File::open(&file).context(format!(
             "Failed to open daily snapshot {}",
-            file.to_str().unwrap()
+            file.to_string_lossy()
         ))?;
         let file = GzDecoder::new(file);
         let file = BufReader::new(file);
