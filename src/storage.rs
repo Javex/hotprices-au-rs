@@ -15,9 +15,10 @@ use time::Date;
 use crate::product::{ProductHistory, ProductSnapshot};
 use crate::stores::{coles, woolies, Store};
 
-pub(crate) fn remove(source: &Path) -> io::Result<()> {
+pub(crate) fn remove(source: &Path) -> anyhow::Result<()> {
     info!("Removing cache directory {}", source.to_string_lossy());
     fs::remove_dir_all(source)
+        .with_context(|| format!("Failed to remove cache folder {}", source.to_string_lossy()))
 }
 
 pub(crate) fn get_snapshot_path(output_dir: &Path, store: Store, day: Date) -> PathBuf {
@@ -28,9 +29,19 @@ pub(crate) fn get_snapshot_path(output_dir: &Path, store: Store, day: Date) -> P
 }
 
 pub(crate) fn save_fetch_data(data: String, snapshot_path: &Path) -> anyhow::Result<()> {
-    let file = File::create(snapshot_path)?;
+    let file = File::create(snapshot_path).with_context(|| {
+        format!(
+            "Failed to save fetched data to {}",
+            snapshot_path.to_string_lossy()
+        )
+    })?;
     let mut file = GzEncoder::new(file, Compression::default());
-    file.write_all(data.as_bytes())?;
+    file.write_all(data.as_bytes()).with_context(|| {
+        format!(
+            "Failed to write all bytes of fetched data to {}",
+            snapshot_path.to_string_lossy()
+        )
+    })?;
     Ok(())
 }
 
