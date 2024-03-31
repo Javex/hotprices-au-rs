@@ -52,7 +52,7 @@ jobs:
         with:
           name: hotprices-au-rs
       - run: chmod +x ./hotprices-au-rs
-      - run: ./hotprices-au-rs sync --quick coles
+      - run: ./hotprices-au-rs --debug sync --quick coles
       - name: Save cache of downloaded files on failure
         uses: actions/cache/save@v3
         if: failure()
