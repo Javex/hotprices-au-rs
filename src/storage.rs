@@ -29,6 +29,18 @@ pub(crate) fn get_snapshot_path(output_dir: &Path, store: Store, day: Date) -> P
 }
 
 pub(crate) fn save_fetch_data(data: String, snapshot_path: &Path) -> anyhow::Result<()> {
+    let snapshot_dir = snapshot_path.parent().with_context(|| {
+        format!(
+            "Snapshot path {} does not contain parent",
+            snapshot_path.to_string_lossy()
+        )
+    })?;
+    create_dir_all(snapshot_dir).with_context(|| {
+        format!(
+            "Failed to create snapshot dir at {}",
+            snapshot_dir.to_string_lossy()
+        )
+    })?;
     let file = File::create(snapshot_path).with_context(|| {
         format!(
             "Failed to save fetched data to {}",
