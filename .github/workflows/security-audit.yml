@@ -8,6 +8,7 @@ on:
     - cron: '0 0 * * *'
 jobs:
   audit:
+    name: Run cargo audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
