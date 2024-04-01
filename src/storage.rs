@@ -2,7 +2,6 @@ use anyhow::Context;
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use log::{debug, info};
 use std::fs::{self};
-use std::io;
 use std::path::PathBuf;
 use std::{
     fs::{create_dir_all, File},
