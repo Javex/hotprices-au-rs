@@ -56,7 +56,7 @@ impl WooliesHttpClient {
 
     pub(crate) fn get_category(&self, id: &str, page: i32) -> anyhow::Result<String> {
         let url = format!("{BASE_URL}/apis/ui/browse/category");
-        log::info!("Loading url '{url}'");
+        log::info!("Loading url '{url}' with page {page} and category id {id}");
         let response = self.retry_policy.retry(|| {
             self.client
                 .post(&url)
