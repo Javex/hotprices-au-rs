@@ -11,7 +11,8 @@ jobs:
     name: Run cargo audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: rustsec/audit-check@v1.4.1
+      - uses: actions/checkout@v4
+      # See https://github.com/rustsec/audit-check/pull/16
+      - uses: clechasseur/rustsec-audit-check@b5ade62a8d38826bb50ca4b8b9bc2a8a97f0d44d
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
