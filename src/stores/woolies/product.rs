@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use log::{debug, warn};
 use serde::Deserialize;
 use std::io::Read;
@@ -30,7 +31,7 @@ pub(crate) struct BundleProduct {
     #[serde(rename = "CupPrice")]
     cup_price: Option<f64>,
     #[serde(rename = "CupMeasure")]
-    cup_measure: String,
+    cup_measure: Option<String>,
     #[serde(rename = "Unit")]
     unit: String,
 }
@@ -46,11 +47,16 @@ impl BundleProduct {
         }
 
         // Try cup_measure which is standardised. We can multiply!
-        let (std_quantity, unit) = match parse_str_unit(&self.cup_measure) {
-            Ok((q, u)) => (q, u),
-            Err(e) => {
-                debug!("Error converting {self:?} due to parsing error {e}");
-                return Err(e.into());
+        let (std_quantity, unit) = match self.cup_measure {
+            Some(ref cup_measure) => match parse_str_unit(cup_measure) {
+                Ok((q, u)) => (q, u),
+                Err(e) => {
+                    debug!("Error converting {self:?} due to parsing error {e}");
+                    return Err(e.into());
+                }
+            },
+            None => {
+                return Err(anyhow!("Missing CupMeasure, ran out of options to convert").into());
             }
         };
 
@@ -93,12 +99,11 @@ impl Product for BundleProduct {
             }
         };
 
-        let (quantity, unit) = if self.cup_measure == "1EA" {
-            (1.0, Unit::Each)
-        } else {
-            self.get_quantity_and_unit(price)?
+        let (quantity, unit) = match self.cup_measure {
+            Some(ref cup_measure) if cup_measure == "1EA" => (1.0, Unit::Each),
+            _ => self.get_quantity_and_unit(price)?,
         };
-        // let (quantity, unit) = parse_str_unit(&self.package_size)?;
+
         let is_weighted = Some(false);
         let product_info = ProductInfo::new(
             self.stockcode,
@@ -168,7 +173,7 @@ mod test {
         assert_eq!(product.price, Some(12.02));
         assert_eq!(product.package_size, "100g");
         assert_eq!(product.cup_price, Some(2.07));
-        assert_eq!(product.cup_measure, "100G");
+        assert_eq!(product.cup_measure, Some(String::from("100G")));
     }
 
     #[test]
@@ -284,7 +289,7 @@ mod test {
                 is_in_stock: true,
                 package_size: String::from("Each"),
                 cup_price: Some(1.0),
-                cup_measure: String::from("100g"),
+                cup_measure: Some(String::from("100g")),
                 unit: String::from("Each"),
             }
         }
@@ -294,7 +299,7 @@ mod test {
     fn test_low_quantity_error() {
         let product = BundleProduct {
             cup_price: Some(1.0),
-            cup_measure: String::from("1g"),
+            cup_measure: Some(String::from("1g")),
             unit: String::from("G"),
             ..Default::default()
         };
