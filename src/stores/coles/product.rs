@@ -66,6 +66,10 @@ impl SearchResult {
 }
 
 impl Product for SearchResult {
+    fn store() -> Store {
+        Store::Coles
+    }
+
     fn try_into_snapshot_and_date(self, date: Date) -> Result<ProductSnapshot> {
         let pricing = self.pricing.as_ref().ok_or(Error::ProductConversion(
             "missing field pricing".to_string(),

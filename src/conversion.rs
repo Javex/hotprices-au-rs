@@ -10,6 +10,7 @@ use time::Date;
 use crate::{
     errors::{Error, Result},
     product::ProductSnapshot,
+    stores::Store,
 };
 
 // If more than 5% of conversions fail then it should be an error
@@ -45,6 +46,7 @@ pub(crate) trait Category<T> {
 
 pub(crate) trait Product {
     fn try_into_snapshot_and_date(self, date: Date) -> Result<ProductSnapshot>;
+    fn store() -> Store;
 }
 
 pub(crate) fn from_reader<C, T>(file: impl Read, date: Date) -> anyhow::Result<Vec<ProductSnapshot>>
@@ -105,10 +107,11 @@ where
             success_threshold, metrics
         );
         return Err(Error::ProductConversion(format!(
-            "Error threshold of {success_threshold} for conversion exceeded: {metrics}",
+            "Error threshold of {success_threshold} for conversion of {date} exceeded: {metrics}",
         )));
     }
-    info!("Conversion succeeded: {}", metrics);
+    let store = T::store();
+    info!("Conversion of {store}/{date} succeeded: {metrics}");
     Ok(success)
 }
 
@@ -123,6 +126,10 @@ mod test {
     struct TestProduct {}
 
     impl Product for TestProduct {
+        fn store() -> Store {
+            Store::Woolies
+        }
+
         fn try_into_snapshot_and_date(self, _: Date) -> Result<ProductSnapshot> {
             Ok(ProductSnapshot::default())
         }
@@ -199,6 +206,10 @@ mod test {
         struct TestProduct {}
 
         impl Product for TestProduct {
+            fn store() -> Store {
+                Store::Woolies
+            }
+
             fn try_into_snapshot_and_date(self, _: Date) -> Result<ProductSnapshot> {
                 Err(Error::ProductConversion(String::new()))
             }

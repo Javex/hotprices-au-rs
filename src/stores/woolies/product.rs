@@ -74,6 +74,10 @@ impl BundleProduct {
 }
 
 impl Product for BundleProduct {
+    fn store() -> Store {
+        Store::Woolies
+    }
+
     fn try_into_snapshot_and_date(self, date: Date) -> Result<ProductSnapshot> {
         let price = match self.price {
             Some(price) => price,
