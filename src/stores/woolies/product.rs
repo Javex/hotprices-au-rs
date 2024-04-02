@@ -125,7 +125,7 @@ pub(crate) struct Bundle {
 }
 
 pub(crate) fn load_snapshot(file: impl Read, date: Date) -> Result<Vec<ProductSnapshot>> {
-    let success = conversion::from_reader::<Category, BundleProduct>(file, date)?;
+    let success = conversion::from_reader::<Category>(file, date)?;
     Ok(success)
 }
 

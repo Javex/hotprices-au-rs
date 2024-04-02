@@ -103,7 +103,7 @@ fn get_quantity_and_unit(item: &SearchResult) -> Result<(f64, Unit)> {
 }
 
 pub(crate) fn load_snapshot(file: impl Read, date: Date) -> anyhow::Result<Vec<ProductSnapshot>> {
-    let success = conversion::from_reader::<Category, SearchResult>(file, date)?;
+    let success = conversion::from_reader::<Category>(file, date)?;
     Ok(success)
 }
 

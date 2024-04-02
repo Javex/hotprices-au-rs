@@ -39,9 +39,10 @@ impl Display for ConversionMetrics {
     }
 }
 
-pub(crate) trait Category<T> {
+pub(crate) trait Category {
+    type Product: Product;
     fn is_filtered(&self) -> bool;
-    fn into_products(self) -> anyhow::Result<Vec<T>>;
+    fn into_products(self) -> anyhow::Result<Vec<Self::Product>>;
 }
 
 pub(crate) trait Product {
@@ -49,26 +50,24 @@ pub(crate) trait Product {
     fn store() -> Store;
 }
 
-pub(crate) fn from_reader<C, T>(file: impl Read, date: Date) -> anyhow::Result<Vec<ProductSnapshot>>
+pub(crate) fn from_reader<C>(file: impl Read, date: Date) -> anyhow::Result<Vec<ProductSnapshot>>
 where
-    C: for<'a> Deserialize<'a> + Category<T>,
-    T: Product,
+    C: for<'a> Deserialize<'a> + Category,
 {
     let categories: Vec<C> = serde_json::from_reader(file)?;
     let categories: Vec<C> = categories
         .into_iter()
         .filter(|c| !c.is_filtered())
         .collect();
-    let success = convert_all::<C, T>(categories)?;
+    let success = convert_all::<C>(categories)?;
 
     let success = convert(success, date)?;
     Ok(success)
 }
 
-fn convert_all<C, T>(categories: Vec<C>) -> anyhow::Result<Vec<T>>
+fn convert_all<C>(categories: Vec<C>) -> anyhow::Result<Vec<C::Product>>
 where
-    C: Category<T>,
-    T: Product,
+    C: Category,
 {
     categories
         .into_iter()
@@ -143,11 +142,12 @@ mod test {
         throw_error: bool,
     }
 
-    impl Category<TestProduct> for TestCategory {
+    impl Category for TestCategory {
+        type Product = TestProduct;
         fn is_filtered(&self) -> bool {
             self.is_filtered
         }
-        fn into_products(self) -> anyhow::Result<Vec<TestProduct>> {
+        fn into_products(self) -> anyhow::Result<Vec<Self::Product>> {
             if self.throw_error {
                 bail!("")
             } else {
@@ -166,8 +166,7 @@ mod test {
         ])
         .to_string();
         let date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-        let products =
-            from_reader::<TestCategory, TestProduct>(json_data.as_bytes(), date).unwrap();
+        let products = from_reader::<TestCategory>(json_data.as_bytes(), date).unwrap();
         assert_eq!(products.len(), 1);
     }
 
@@ -185,8 +184,7 @@ mod test {
         ])
         .to_string();
         let date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-        let products =
-            from_reader::<TestCategory, TestProduct>(json_data.as_bytes(), date).unwrap();
+        let products = from_reader::<TestCategory>(json_data.as_bytes(), date).unwrap();
         assert_eq!(products.len(), 1);
     }
 
@@ -197,7 +195,7 @@ mod test {
             is_filtered: false,
             products: vec![],
         }];
-        let result = convert_all::<TestCategory, TestProduct>(categories);
+        let result = convert_all::<TestCategory>(categories);
         assert!(result.is_err());
     }
 

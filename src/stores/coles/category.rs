@@ -69,7 +69,8 @@ impl Category {
     }
 }
 
-impl conversion::Category<SearchResult> for Category {
+impl conversion::Category for Category {
+    type Product = SearchResult;
     fn is_filtered(&self) -> bool {
         if SKIP_CATEGORIES.contains(&self.seo_token.as_str()) {
             return true;

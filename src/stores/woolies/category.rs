@@ -82,7 +82,8 @@ impl Category {
     }
 }
 
-impl conversion::Category<BundleProduct> for Category {
+impl conversion::Category for Category {
+    type Product = BundleProduct;
     fn is_filtered(&self) -> bool {
         if IGNORED_CATEGORY_IDS.contains(&self.node_id.as_str()) {
             return true;
