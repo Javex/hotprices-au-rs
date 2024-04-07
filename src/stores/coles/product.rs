@@ -1,3 +1,4 @@
+use crate::category::CategoryCode;
 use crate::conversion::{self, Product};
 use crate::errors::{Error, Result};
 use crate::product::{price_serde, Price};
@@ -10,6 +11,8 @@ use anyhow::anyhow;
 use serde::Deserialize;
 use std::io::Read;
 use time::Date;
+
+use super::category::get_normalised_category_from_id;
 
 const IGNORED_RESULT_TYPES: [&str; 2] = ["SINGLE_TILE", "CONTENT_ASSOCIATION"];
 
@@ -27,6 +30,12 @@ struct Pricing {
 }
 
 #[derive(Deserialize, Debug)]
+struct OnlineHeir {
+    #[serde(rename = "categoryId")]
+    category_id: String,
+}
+
+#[derive(Deserialize, Debug)]
 pub(crate) struct SearchResult {
     id: i64,
     name: String,
@@ -34,6 +43,8 @@ pub(crate) struct SearchResult {
     description: String,
     size: String,
     pricing: Option<Pricing>,
+    #[serde(rename = "onlineHeirs")]
+    online_heirs: Option<Vec<OnlineHeir>>,
 }
 
 impl SearchResult {
@@ -63,6 +74,22 @@ impl SearchResult {
 
         Ok(search_result)
     }
+
+    fn category(&self) -> Result<Option<CategoryCode>> {
+        let online_heirs = match &self.online_heirs {
+            Some(v) => v,
+            None => return Ok(None),
+        };
+
+        let category_id = &online_heirs
+            .first()
+            .ok_or_else(|| {
+                Error::ProductConversion("missing onlineHeirs item in array".to_string())
+            })?
+            .category_id;
+
+        Ok(get_normalised_category_from_id(category_id))
+    }
 }
 
 impl Product for SearchResult {
@@ -79,6 +106,8 @@ impl Product for SearchResult {
             name = format!("{} {}", self.brand, name);
         }
 
+        let category = self.category()?;
+
         let (quantity, unit) = get_quantity_and_unit(&self)?;
         let product_info = ProductInfo::new(
             self.id,
@@ -88,6 +117,7 @@ impl Product for SearchResult {
             unit,
             quantity,
             Store::Coles,
+            category,
         );
         Ok(ProductSnapshot::new(product_info, pricing.now, date))
     }
@@ -112,6 +142,8 @@ mod test {
     use serde_json::json;
     use time::Month;
 
+    use crate::category::FruitAndVeg;
+
     use super::*;
 
     #[test]
@@ -133,7 +165,12 @@ mod test {
                   "isWeighted": false
                 },
                 "comparable": "$4.47 per 100g"
-              }
+              },
+              "onlineHeirs": [
+                {
+                  "categoryId": "1302",
+                },
+              ],
             }
         );
         let json_data: serde_json::Value = serde_json::from_value(product).unwrap();
@@ -185,7 +222,12 @@ mod test {
                   "isWeighted": false
                 },
                 "comparable": "$4.47 per 100g"
-              }
+              },
+              "onlineHeirs": [
+                {
+                  "categoryId": "1302",
+                },
+              ],
             }
         );
         let product =
@@ -213,7 +255,12 @@ mod test {
               "brand": "Brand name",
               "description": "BRAND NAME PRODUCT NAME 150G",
               "size": "150g",
-              "pricing": null
+              "pricing": null,
+              "onlineHeirs": [
+                {
+                  "categoryId": "1302",
+                },
+              ],
             }
         );
         let product =
@@ -245,7 +292,12 @@ mod test {
                   "isWeighted": false
                 },
                 "comparable": "$4.47 per 100g"
-              }
+              },
+              "onlineHeirs": [
+                {
+                  "categoryId": "1302",
+                },
+              ],
             }
         );
         let product =
@@ -255,5 +307,87 @@ mod test {
             .try_into_snapshot_and_date(date)
             .expect("Expected conversion to succeed");
         assert_eq!(product.name(), "Product name");
+    }
+
+    #[test]
+    fn test_load_category() {
+        let product = json!(
+            {
+              "_type": "PRODUCT",
+              "id": 42,
+              "adId": null,
+              "name": "Product name",
+              "brand": "Brand name",
+              "description": "BRAND NAME PRODUCT NAME 150G",
+              "size": "150g",
+              "pricing": {
+                "now": 6.7,
+                "unit": {
+                  "quantity": 1,
+                  "ofMeasureUnits": "g",
+                  "isWeighted": false
+                },
+                "comparable": "$4.47 per 100g"
+              },
+              "onlineHeirs": [
+                {
+                  "categoryId": "1302",
+                },
+              ],
+            }
+        );
+        let product =
+            SearchResult::from_json_value(product).expect("Returned error instead of result");
+        let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+        let product = product
+            .try_into_snapshot_and_date(date)
+            .expect("Expected conversion to succeed");
+        assert_eq!(product.id(), 42);
+        assert_eq!(product.name(), "Brand name Product name");
+        assert_eq!(product.description(), "BRAND NAME PRODUCT NAME 150G");
+        assert_eq!(product.price(), 6.7.into());
+        // todo: date?
+        assert!(!product.is_weighted());
+        assert_eq!(
+            product.category().unwrap(),
+            crate::category::Category::FruitAndVeg(FruitAndVeg::Fruit)
+        )
+    }
+
+    #[test]
+    fn test_load_product_without_category() {
+        let product = json!(
+            {
+              "_type": "PRODUCT",
+              "id": 42,
+              "adId": null,
+              "name": "Product name",
+              "brand": "Brand name",
+              "description": "BRAND NAME PRODUCT NAME 150G",
+              "size": "150g",
+              "pricing": {
+                "now": 6.7,
+                "unit": {
+                  "quantity": 1,
+                  "ofMeasureUnits": "g",
+                  "isWeighted": false
+                },
+                "comparable": "$4.47 per 100g"
+              },
+            }
+        );
+        let product =
+            SearchResult::from_json_value(product).expect("Returned error instead of result");
+        let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+        let product = product
+            .try_into_snapshot_and_date(date)
+            .expect("Expected conversion to succeed");
+        assert_eq!(product.id(), 42);
+        assert_eq!(product.name(), "Brand name Product name");
+        assert_eq!(product.description(), "BRAND NAME PRODUCT NAME 150G");
+        assert_eq!(product.price(), 6.7.into());
+        // todo: date?
+        assert!(!product.is_weighted());
+        assert!(product.category().is_none());
     }
 }

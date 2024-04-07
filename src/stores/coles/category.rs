@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Display};
 #[double]
 use super::http::ColesHttpClient;
 use super::product::SearchResult;
-use crate::{cache::FsCache, conversion, errors::Error};
+use crate::{cache::FsCache, category::CategoryCode, conversion, errors::Error};
 use anyhow::Context;
 use log::debug;
 use mockall_double::double;
@@ -119,6 +119,22 @@ struct PageProps {
 struct CategoryJson {
     #[serde(rename = "pageProps")]
     page_props: PageProps,
+}
+
+pub(crate) fn get_normalised_category_from_id(category_id: &str) -> Option<CategoryCode> {
+    use crate::category::Category::*;
+    use crate::category::FruitAndVeg::*;
+    let category = match category_id {
+        "1302" => FruitAndVeg(Fruit),
+        "1304" => FruitAndVeg(SaladAndHerbs),
+        "8893800" => FruitAndVeg(SaladAndHerbs),
+        "1303" => FruitAndVeg(Veg),
+        "8894601" => FruitAndVeg(Veg),
+        "1723" => FruitAndVeg(NutsAndDriedFruits),
+
+        _ => return None,
+    };
+    Some(CategoryCode::from_category(category))
 }
 
 #[cfg(test)]

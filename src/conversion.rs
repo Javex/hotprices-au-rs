@@ -111,6 +111,12 @@ where
     }
     let store = T::store();
     info!("Conversion of {store}/{date} succeeded: {metrics}");
+
+    // Figure out how many products have a category
+    let category_count = success.iter().filter(|p| p.category().is_some()).count();
+    let percentage = category_count as f64 / success.len() as f64 * 100.0;
+    info!("Products with category: {category_count} ({percentage:.2}%)");
+
     Ok(success)
 }
 

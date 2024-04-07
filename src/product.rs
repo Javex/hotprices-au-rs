@@ -6,6 +6,9 @@ use nonempty::{nonempty, NonEmpty};
 use serde::{self, Deserialize, Serialize};
 use time::Date;
 
+use crate::category::Category;
+
+use crate::category::CategoryCode;
 use crate::{stores::Store, unit::Unit};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -18,9 +21,12 @@ pub(crate) struct ProductInfo {
     unit: Unit,
     quantity: f64,
     store: Store,
+    #[serde(flatten)]
+    category: Option<CategoryCode>,
 }
 
 impl ProductInfo {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         id: i64,
         name: String,
@@ -29,6 +35,7 @@ impl ProductInfo {
         unit: Unit,
         quantity: f64,
         store: Store,
+        category: Option<CategoryCode>,
     ) -> Self {
         Self {
             id,
@@ -38,6 +45,7 @@ impl ProductInfo {
             unit,
             quantity,
             store,
+            category,
         }
     }
 }
@@ -88,6 +96,10 @@ impl ProductSnapshot {
     #[cfg(test)]
     pub(crate) fn quantity(&self) -> f64 {
         self.product_info.quantity
+    }
+
+    pub(crate) fn category(&self) -> Option<Category> {
+        self.product_info.category.as_ref().map(|v| v.category)
     }
 
     pub(crate) fn price(&self) -> Price {
@@ -269,6 +281,7 @@ mod test_merge_price_history {
                 unit: Unit::Grams,
                 quantity: 1.0,
                 store: Store::Coles,
+                category: None,
             }
         }
     }

@@ -203,7 +203,12 @@ mod test_do_analysis {
                       "unit": {
                         "isWeighted": false
                       }
-                    }
+                    },
+                    "onlineHeirs": [
+                      {
+                        "categoryId": "1302",
+                      },
+                    ],
                   }
                 ]
               }
@@ -242,7 +247,8 @@ mod test_do_analysis {
                     "priceHistory": [
                         { "date": "2024-01-02", "price": 6.7 },
                         { "date": "2024-01-01", "price": 12.0 },
-                    ]
+                    ],
+                    "category": "00",
                 }
             ]),
         );
@@ -278,7 +284,12 @@ mod test_do_analysis {
                       "unit": {
                         "isWeighted": false
                       }
-                    }
+                    },
+                    "onlineHeirs": [
+                      {
+                        "categoryId": "1302",
+                      },
+                    ],
                   }
                 ]
               }
@@ -307,7 +318,12 @@ mod test_do_analysis {
                       "unit": {
                         "isWeighted": false
                       }
-                    }
+                    },
+                    "onlineHeirs": [
+                      {
+                        "categoryId": "1302",
+                      },
+                    ],
                   }
                 ]
               }

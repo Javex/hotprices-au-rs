@@ -113,6 +113,7 @@ impl Product for BundleProduct {
             unit,
             quantity,
             Store::Woolies,
+            None,
         );
         Ok(ProductSnapshot::new(product_info, Price::from(price), date))
     }

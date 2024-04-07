@@ -8,6 +8,7 @@
 //! exercise for me, but you're welcome to experiment with it.
 pub mod analysis;
 mod cache;
+mod category;
 mod conversion;
 mod date;
 mod errors;
