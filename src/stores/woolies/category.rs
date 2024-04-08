@@ -110,10 +110,17 @@ impl Category {
         let category = match self.children.iter().find(|c| {
             !c.category_info.is_special && subcategory_names.contains(&c.category_info.description)
         }) {
-            Some(child) => match child.category_info.node_id.as_str() {
-                "1-5931EE89" => Category::FruitAndVeg(FruitAndVeg::Fruit),
-                "1_AC17EDD" => Category::FruitAndVeg(FruitAndVeg::Veg),
-                "1_2684504" => Category::FruitAndVeg(FruitAndVeg::SaladAndHerbs),
+            Some(child) => match child.category_info.description.as_str() {
+                // Fruit & Veg
+                "Fruit" => Category::FruitAndVeg(FruitAndVeg::Fruit),
+                "Vegetables" => Category::FruitAndVeg(FruitAndVeg::Veg),
+                "Salad" => Category::FruitAndVeg(FruitAndVeg::SaladAndHerbs),
+
+                // Meat & Seafood
+                "Poultry" => Category::MeatAndSeafood(crate::category::MeatAndSeafood::Poultry),
+                "Meat" => Category::MeatAndSeafood(crate::category::MeatAndSeafood::Meat),
+                "Seafood" => Category::MeatAndSeafood(crate::category::MeatAndSeafood::Seafood),
+
                 _ => return Ok(None),
             },
             None => return Ok(None),

@@ -121,20 +121,30 @@ struct CategoryJson {
     page_props: PageProps,
 }
 
-pub(crate) fn get_normalised_category_from_id(category_id: &str) -> Option<CategoryCode> {
+pub(crate) fn get_category_from_names(names: Vec<&str>) -> Option<CategoryCode> {
     use crate::category::Category::*;
     use crate::category::FruitAndVeg::*;
-    let category = match category_id {
-        "1302" => FruitAndVeg(Fruit),
-        "1304" => FruitAndVeg(SaladAndHerbs),
-        "8893800" => FruitAndVeg(SaladAndHerbs),
-        "1303" => FruitAndVeg(Veg),
-        "8894601" => FruitAndVeg(Veg),
-        "1723" => FruitAndVeg(NutsAndDriedFruits),
+    use crate::category::MeatAndSeafood::*;
+    for name in names {
+        let category = match name {
+            "Fruit" => FruitAndVeg(Fruit),
+            "Salad & Herbs" => FruitAndVeg(SaladAndHerbs),
+            "Packaged Salad" => FruitAndVeg(SaladAndHerbs),
+            "Vegetables" => FruitAndVeg(Veg),
+            "Prepared Vegetables" => FruitAndVeg(Veg),
+            "Nuts & Dried Fruit" => FruitAndVeg(NutsAndDriedFruits),
 
-        _ => return None,
-    };
-    Some(CategoryCode::from_category(category))
+            "BBQ, Sausages & Burgers" => MeatAndSeafood(Meat),
+            "Beef & Veal" => MeatAndSeafood(Meat),
+            "Coles Made Easy Range" => MeatAndSeafood(Meat),
+            "Game" => MeatAndSeafood(Meat),
+            "Hams & Bacon" => MeatAndSeafood(Meat),
+
+            _ => continue,
+        };
+        return Some(CategoryCode::from_category(category));
+    }
+    None
 }
 
 #[cfg(test)]

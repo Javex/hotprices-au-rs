@@ -206,7 +206,7 @@ mod test_do_analysis {
                     },
                     "onlineHeirs": [
                       {
-                        "categoryId": "1302",
+                        "category": "Fruit",
                       },
                     ],
                   }
@@ -287,7 +287,7 @@ mod test_do_analysis {
                     },
                     "onlineHeirs": [
                       {
-                        "categoryId": "1302",
+                        "category": "",
                       },
                     ],
                   }
@@ -321,7 +321,7 @@ mod test_do_analysis {
                     },
                     "onlineHeirs": [
                       {
-                        "categoryId": "1302",
+                        "category": "",
                       },
                     ],
                   }

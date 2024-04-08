@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Category {
     FruitAndVeg(FruitAndVeg),
+    MeatAndSeafood(MeatAndSeafood),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -11,6 +12,14 @@ pub enum FruitAndVeg {
     Veg,
     SaladAndHerbs,
     NutsAndDriedFruits,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum MeatAndSeafood {
+    Poultry,
+    Meat,
+    Seafood,
+    BBQ,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -35,11 +44,20 @@ mod cat_code_serde {
         S: Serializer,
     {
         let s = match category {
+            // Fruit & Veg
             Category::FruitAndVeg(sub) => match sub {
                 FruitAndVeg::Fruit => "00",
                 FruitAndVeg::Veg => "01",
                 FruitAndVeg::SaladAndHerbs => "02",
                 FruitAndVeg::NutsAndDriedFruits => "03",
+            },
+
+            // Meat & Seafood
+            Category::MeatAndSeafood(sub) => match sub {
+                MeatAndSeafood::Poultry => "30",
+                MeatAndSeafood::Meat => "31",
+                MeatAndSeafood::Seafood => "32",
+                MeatAndSeafood::BBQ => "33",
             },
         };
         serializer.serialize_str(s)
@@ -59,10 +77,17 @@ mod cat_code_serde {
         }
 
         Ok(match s.as_str() {
+            // Fruit & Veg
             "00" => Category::FruitAndVeg(FruitAndVeg::Fruit),
             "01" => Category::FruitAndVeg(FruitAndVeg::Veg),
             "02" => Category::FruitAndVeg(FruitAndVeg::SaladAndHerbs),
             "03" => Category::FruitAndVeg(FruitAndVeg::NutsAndDriedFruits),
+
+            // Meat & Seafood
+            "30" => Category::MeatAndSeafood(MeatAndSeafood::Poultry),
+            "31" => Category::MeatAndSeafood(MeatAndSeafood::Meat),
+            "32" => Category::MeatAndSeafood(MeatAndSeafood::Seafood),
+            "33" => Category::MeatAndSeafood(MeatAndSeafood::BBQ),
             _ => todo!(),
         })
     }

@@ -12,7 +12,7 @@ use serde::Deserialize;
 use std::io::Read;
 use time::Date;
 
-use super::category::get_normalised_category_from_id;
+use super::category::get_category_from_names;
 
 const IGNORED_RESULT_TYPES: [&str; 2] = ["SINGLE_TILE", "CONTENT_ASSOCIATION"];
 
@@ -31,8 +31,7 @@ struct Pricing {
 
 #[derive(Deserialize, Debug)]
 struct OnlineHeir {
-    #[serde(rename = "categoryId")]
-    category_id: String,
+    category: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -81,14 +80,9 @@ impl SearchResult {
             None => return Ok(None),
         };
 
-        let category_id = &online_heirs
-            .first()
-            .ok_or_else(|| {
-                Error::ProductConversion("missing onlineHeirs item in array".to_string())
-            })?
-            .category_id;
+        let category_names: Vec<&str> = online_heirs.iter().map(|o| o.category.as_str()).collect();
 
-        Ok(get_normalised_category_from_id(category_id))
+        Ok(get_category_from_names(category_names))
     }
 }
 
@@ -168,7 +162,7 @@ mod test {
               },
               "onlineHeirs": [
                 {
-                  "categoryId": "1302",
+                  "category": "Fruit",
                 },
               ],
             }
@@ -225,7 +219,7 @@ mod test {
               },
               "onlineHeirs": [
                 {
-                  "categoryId": "1302",
+                  "category": "Fruit",
                 },
               ],
             }
@@ -258,7 +252,7 @@ mod test {
               "pricing": null,
               "onlineHeirs": [
                 {
-                  "categoryId": "1302",
+                  "category": "Fruit",
                 },
               ],
             }
@@ -295,7 +289,7 @@ mod test {
               },
               "onlineHeirs": [
                 {
-                  "categoryId": "1302",
+                  "category": "Fruit",
                 },
               ],
             }
@@ -331,7 +325,7 @@ mod test {
               },
               "onlineHeirs": [
                 {
-                  "categoryId": "1302",
+                  "category": "Fruit",
                 },
               ],
             }
