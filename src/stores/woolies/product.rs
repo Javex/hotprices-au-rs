@@ -1,7 +1,8 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use log::{debug, warn};
 use serde::Deserialize;
 use std::io::Read;
+use std::rc::Rc;
 use time::Date;
 
 use crate::conversion::{self, Product};
@@ -11,6 +12,24 @@ use crate::stores::Store;
 use crate::unit::{parse_str_unit, Unit};
 
 use super::category::Category;
+
+#[derive(Deserialize, Debug)]
+struct AdditionalAttributes {
+    piessubcategorynamesjson: String,
+    piescategorynamesjson: String,
+}
+
+impl AdditionalAttributes {
+    pub(crate) fn subcategory_names(&self) -> Result<Vec<String>> {
+        let mut categories = Vec::new();
+        categories.extend(serde_json::from_str::<Vec<_>>(
+            &self.piessubcategorynamesjson,
+        )?);
+        categories.extend(serde_json::from_str::<Vec<_>>(&self.piescategorynamesjson)?);
+
+        Ok(categories)
+    }
+}
 
 #[derive(Deserialize, Debug)]
 pub(crate) struct BundleProduct {
@@ -34,6 +53,12 @@ pub(crate) struct BundleProduct {
     cup_measure: Option<String>,
     #[serde(rename = "Unit")]
     unit: String,
+
+    #[serde(rename = "AdditionalAttributes")]
+    addtional_attributes: AdditionalAttributes,
+
+    #[serde(skip)]
+    category: Rc<Category>,
 }
 
 impl BundleProduct {
@@ -77,6 +102,10 @@ impl BundleProduct {
         }
         Ok((quantity, unit))
     }
+
+    pub(crate) fn set_category(&mut self, category: Rc<Category>) {
+        self.category = category;
+    }
 }
 
 impl Product for BundleProduct {
@@ -99,6 +128,13 @@ impl Product for BundleProduct {
             }
         };
 
+        let subcategory_names = self
+            .addtional_attributes
+            .subcategory_names()
+            .context("Failed to parse nested subcategory names")?;
+
+        let category = self.category.code(subcategory_names)?;
+
         let (quantity, unit) = match self.cup_measure {
             Some(ref cup_measure) if cup_measure == "1EA" => (1.0, Unit::Each),
             _ => self.get_quantity_and_unit(price)?,
@@ -113,7 +149,7 @@ impl Product for BundleProduct {
             unit,
             quantity,
             Store::Woolies,
-            None,
+            category,
         );
         Ok(ProductSnapshot::new(product_info, Price::from(price), date))
     }
@@ -154,7 +190,11 @@ mod test {
                   "Name": "product name",
                   "Description": "some long product description",
                   "Unit": "Each",
-                  "PackageSize": "100g"
+                  "PackageSize": "100g",
+                  "AdditionalAttributes": {
+                    "piessubcategorynamesjson": "[]",
+                    "piescategorynamesjson": "[]",
+                  }
                 }
               ]
             }
@@ -192,7 +232,11 @@ mod test {
                   "Name": "product name",
                   "Description": "some long product description",
                   "Unit": "Each",
-                  "PackageSize": "100g"
+                  "PackageSize": "100g",
+                  "AdditionalAttributes": {
+                    "piessubcategorynamesjson": "[]",
+                    "piescategorynamesjson": "[]",
+                  }
                 }
               ]
             }
@@ -229,7 +273,11 @@ mod test {
                   "Name": "product name",
                   "Description": "some long product description",
                   "Unit": "Each",
-                  "PackageSize": "100g"
+                  "PackageSize": "100g",
+                  "AdditionalAttributes": {
+                    "piessubcategorynamesjson": "[]",
+                    "piescategorynamesjson": "[]",
+                  }
                 }
               ]
             }
@@ -261,7 +309,11 @@ mod test {
                   "Name": "product name",
                   "Description": "some long product description",
                   "Unit": "Each",
-                  "PackageSize": "8x70g"
+                  "PackageSize": "8x70g",
+                  "AdditionalAttributes": {
+                    "piessubcategorynamesjson": "[]",
+                    "piescategorynamesjson": "[]",
+                  }
                 }
               ]
             }
@@ -279,6 +331,15 @@ mod test {
         assert_eq!(product.quantity(), 560.0);
     }
 
+    impl Default for AdditionalAttributes {
+        fn default() -> Self {
+            Self {
+                piessubcategorynamesjson: String::from("[]"),
+                piescategorynamesjson: String::from("[]"),
+            }
+        }
+    }
+
     impl Default for BundleProduct {
         fn default() -> Self {
             Self {
@@ -292,6 +353,8 @@ mod test {
                 cup_price: Some(1.0),
                 cup_measure: Some(String::from("100g")),
                 unit: String::from("Each"),
+                category: Rc::new(Category::default()),
+                addtional_attributes: AdditionalAttributes::default(),
             }
         }
     }

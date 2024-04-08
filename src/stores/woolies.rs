@@ -63,6 +63,8 @@ mod test {
                     {
                         "NodeId": "1-ABCDEF12",
                         "Description": "Category Description",
+                        "IsSpecial": false,
+                        "Children": [],
                         "SomeExtraField": "Extra value"
                     }
                 ]
@@ -87,6 +89,8 @@ mod test {
                         {
                             "NodeId": "1-ABCDEF12",
                             "Description": "Category Description",
+                            "IsSpecial": false,
+                            "Children": [],
                         }
                     ]
                 });
@@ -112,6 +116,8 @@ mod test {
             json!([{
                 "NodeId": "1-ABCDEF12",
                 "Description": "Category Description",
+                "IsSpecial": false,
+                "Children": [],
                 "Products": [{"fakeobject": "fake"}]
             }])
         );
