@@ -19,7 +19,6 @@ pub enum MeatAndSeafood {
     Poultry,
     Meat,
     Seafood,
-    BBQ,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -57,7 +56,6 @@ mod cat_code_serde {
                 MeatAndSeafood::Poultry => "30",
                 MeatAndSeafood::Meat => "31",
                 MeatAndSeafood::Seafood => "32",
-                MeatAndSeafood::BBQ => "33",
             },
         };
         serializer.serialize_str(s)
@@ -87,7 +85,6 @@ mod cat_code_serde {
             "30" => Category::MeatAndSeafood(MeatAndSeafood::Poultry),
             "31" => Category::MeatAndSeafood(MeatAndSeafood::Meat),
             "32" => Category::MeatAndSeafood(MeatAndSeafood::Seafood),
-            "33" => Category::MeatAndSeafood(MeatAndSeafood::BBQ),
             _ => todo!(),
         })
     }
