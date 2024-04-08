@@ -127,13 +127,11 @@ jobs:
         with:
           name: latest_canonical
           path: ./output/latest-canonical.json.gz
-      # TODO: Enable once testing confirms the switch is good and I can disable
-      # the Python one (or disable its schedule)
       # TODO: When enabling, leverage the cache and sync data earlier (or maybe
       # Github actions has a nice caching solution?)
-      # - name: Upload all files after finished analysis
-      #   # The content-encoding is necessary so that S3 sends the correct content-encoding header on GET
-      #   run: |
-      #     aws s3 sync ./output/ s3://grocery-scrape-au/
-      #     aws s3 cp --content-encoding gzip static/data/latest-canonical.woolies.compressed.json.gz s3://hotprices.org/data/
-      #     aws s3 cp --content-encoding gzip static/data/latest-canonical.coles.compressed.json.gz s3://hotprices.org/data/
+      - name: Upload all files after finished analysis
+        # The content-encoding is necessary so that S3 sends the correct content-encoding header on GET
+        run: |
+          aws s3 sync ./output/ s3://grocery-scrape-au/
+          aws s3 cp --content-encoding gzip static/data/latest-canonical.woolies.compressed.json.gz s3://hotprices.org/data/
+          aws s3 cp --content-encoding gzip static/data/latest-canonical.coles.compressed.json.gz s3://hotprices.org/data/
