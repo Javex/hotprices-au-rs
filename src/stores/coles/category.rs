@@ -64,6 +64,8 @@ impl Category {
                     if err_count > ERROR_COUNT_MAX {
                         return Err(e);
                     }
+                    // Advance page without doing any of the other stuff, essentially skipping it
+                    page += 1;
                     continue;
                 }
             };
