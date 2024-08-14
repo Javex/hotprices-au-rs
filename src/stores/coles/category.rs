@@ -5,11 +5,14 @@ use super::http::ColesHttpClient;
 use super::product::SearchResult;
 use crate::{cache::FsCache, category::CategoryCode, conversion, errors::Error};
 use anyhow::Context;
-use log::debug;
+use log::{debug, error};
 use mockall_double::double;
 use serde::{Deserialize, Serialize};
 
 const SKIP_CATEGORIES: [&str; 2] = ["down-down", "back-to-school"];
+// How many errors are acceptable for a category before failing?
+// This means it's okay if *some* categories don't return 100% of products
+const ERROR_COUNT_MAX: i32 = 2;
 
 #[derive(Deserialize, Serialize)]
 pub(crate) struct Category {
@@ -48,8 +51,22 @@ impl Category {
     ) -> anyhow::Result<usize> {
         let mut products = Vec::new();
         let mut page = 1;
+        let mut err_count = 0;
         loop {
-            let category_response = self.get_category(client, cache, page)?;
+            let category_response = match self.get_category(client, cache, page) {
+                Ok(r) => r,
+                Err(e) => {
+                    error!(
+                        "Error when fetching category '{}' on page '{}': {:?}",
+                        self.seo_token, page, &e
+                    );
+                    err_count += 1;
+                    if err_count > ERROR_COUNT_MAX {
+                        return Err(e);
+                    }
+                    continue;
+                }
+            };
             let new_products = category_response.results;
             page += 1;
             debug!(
